@@ -1,6 +1,7 @@
 streams/*.h
 streams/*.cpp
 *.vcxproj*
+*.vcproj*
 obj
 *.sln
 debug
@@ -9,3 +10,6 @@ ipch
 *.opensdf
 *.sdf
 *.suo
+UpgradeLog*.XML
+_UpgradeReport_Files
+
