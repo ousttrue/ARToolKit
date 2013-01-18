@@ -13,6 +13,10 @@ history
 
 require
 =======
+VC++2010 express edition
+------------------------
+コンパイラ
+
 Windows SDK
 -----------
 Samples/Multimedia/DirectShow/BaseClassesに含まれるstreams.hとビルド結果のstrmbase.libが必要。
@@ -23,13 +27,17 @@ Include/qedit.hが必要。
 
 Windows DDK
 -----------
-* http://www.microsoft.com/en-us/download/details.aspx?displaylang=en&amp;id=11800
 DSVLがatlを使っている。
+* http://www.microsoft.com/en-us/download/details.aspx?displaylang=en&amp;id=11800
+
+premake4
+--------
+vcのソリューション、プロジェクト生成に使う。
 
 build
 =====
 streamsディレクトリに
-* $(Windows SDK DIR)/Samples/Multimedia/DirectShow/BaseClasses/*.{cpp,h}
+* $(Windows SDK DIR)/Samples/Multimedia/DirectShow/BaseClasses/下の.cppと.h
 * $(Windows SDK DIR)/Include/qedit.h
 をコピーする
 
@@ -51,7 +59,7 @@ Windows SDK v7.1では不要だった。VC6とかなら通りそうだが・・�
 ::
     // for文のスコープバグ？
     UINT Count;
-    for (Count = 0;Count < Result;Count++) {
+    for (Count = 0;Count < Result;Count++)
 
 outputq.cppの修正
 -----------------
@@ -70,6 +78,7 @@ qedit.hの修正
     //: public IDXEffect
 
 vcのsolutionを生成
+------------------
 ::
 
     > premake4 vs2010
