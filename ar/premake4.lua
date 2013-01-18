@@ -27,6 +27,7 @@ includedirs {
     "include",
     "../dsvl",
     "../streams",
+    "../glut",
 }
 buildoptions {
 }
