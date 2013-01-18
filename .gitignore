@@ -1,0 +1,11 @@
+streams/*.h
+streams/*.cpp
+*.vcxproj*
+obj
+*.sln
+debug
+release
+ipch
+*.opensdf
+*.sdf
+*.suo
