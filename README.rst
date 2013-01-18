@@ -28,6 +28,47 @@ DSVLがatlを使っている。
 
 build
 =====
+streamsディレクトリに
+* $(Windows SDK DIR)/Samples/Multimedia/DirectShow/BaseClasses/*.{cpp,h}
+* $(Windows SDK DIR)/Include/qedit.h
+をコピーする
+
+ctlutil.hの修正
+---------------
+Windows SDK v7.1では不要だった。VC6とかなら通りそうだが・・・
+::
+    LONG operator=(LONG);
+
+wxdebug.cppの修正
+-----------------
+Windows SDK v7.1では不要だった。VC6とかなら通りそうだが・・・
+::
+    static DWORD g_dwLastRefresh = 0;
+
+winutil.cppの修正
+-----------------
+Windows SDK v7.1では不要だった。VC6とかなら通りそうだが・・・
+::
+    // for文のスコープバグ？
+    UINT Count;
+    for (Count = 0;Count < Result;Count++) {
+
+outputq.cppの修正
+-----------------
+Windows SDK v7.1では不要だった。VC6とかなら通りそうだが・・・
+::
+    // for文のスコープバグ？
+    long iDone;
+    for (iDone = 0;
+
+qedit.hの修正
+-------------
+::
+    //#include "dxtrans.h"
+    
+    // 4か所
+    //: public IDXEffect
+
 vcのsolutionを生成
 ::
 
