@@ -689,7 +689,10 @@ HRESULT DSVL_GraphManager::CheckinMemoryBuffer(MemoryBufferHandle Handle, bool F
 	CAutoLock cObjectLock(&m_CSec);
 	std::map<unsigned long, MemoryBufferEntry>::iterator iter;
 	iter = mb.find(Handle.n);
-	ASSERT(iter != mb.end());
+	//ASSERT(iter != mb.end());
+    if(iter==mb.end()){
+        return E_FAIL;
+    }
 
 	if(ForceRelease) (*iter).second.use_count = 0;
 	else
