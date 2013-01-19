@@ -1,35 +1,97 @@
 #ifndef AR_CONFIG_H
 #define AR_CONFIG_H
 
-/*------------------------------------------------------------*/
-/*                                                            */
-/*  For Linux, you should define one of below 3 input method  */
-/*    AR_INPUT_V4L:     use of standard Video4Linux Library   */
-/*    AR_INPUT_DV:      use of DV Camera                      */
-/*    AR_INPUT_1394CAM: use of 1394 Digital Camara            */
-/*                                                            */
-/*------------------------------------------------------------*/
+//
+// As of version 2.72, ARToolKit supports an OpenGL-like
+// versioning system, with both header versions (for the version
+// of the ARToolKit SDK installed) and runtime version reporting
+// via arGetVersion().
+//
+
+// The MAJOR version number defines non-backwards compatible
+// changes in the ARToolKit API. Range: [0-99].
+#define AR_HEADER_VERSION_MAJOR		2
+
+// The MINOR version number defines additions to the ARToolKit
+// API, or (occsasionally) other significant backwards-compatible
+// changes in runtime functionality. Range: [0-99].
+#define AR_HEADER_VERSION_MINOR		72
+
+// The TINY version number defines bug-fixes to existing
+// functionality. Range: [0-99].
+#define AR_HEADER_VERSION_TINY		0
+
+// The BUILD version number will always be zero in releases,
+// but may be non-zero in internal builds or in version-control
+// repository-sourced code. Range: [0-99].
+#define AR_HEADER_VERSION_BUILD		0
+
+// The string representation below must match the major, minor
+// and tiny release numbers.
+#define AR_HEADER_VERSION_STRING	"2.72.0"
+
+// The macros below are convenience macros to enable use
+// of certain ARToolKit header functionality by the release
+// version in which it appeared.
+// Each time the major version number is incremented, all
+// existing macros must be removed, and just one new one
+// added for the new major version.
+// Each time the minor version number is incremented, a new
+// AR_HAVE_HEADER_VERSION_ macro definition must be added.
+// Tiny version numbers (being bug-fix releases, by definition)
+// are NOT included in the AR_HAVE_HEADER_VERSION_ system.
+#define AR_HAVE_HEADER_VERSION_2
+#define AR_HAVE_HEADER_VERSION_2_72
+
+//
+// End version definitions.
+//
+
+#define AR_PIXEL_FORMAT_RGB 1
+#define AR_PIXEL_FORMAT_BGR 2
+#define AR_PIXEL_FORMAT_RGBA 3
+#define AR_PIXEL_FORMAT_BGRA 4
+#define AR_PIXEL_FORMAT_ABGR 5
+#define AR_PIXEL_FORMAT_MONO 6
+#define AR_PIXEL_FORMAT_ARGB 7
+#define AR_PIXEL_FORMAT_2vuy 8
+#define AR_PIXEL_FORMAT_UYVY AR_PIXEL_FORMAT_2vuy
+#define AR_PIXEL_FORMAT_yuvs 9
+#define AR_PIXEL_FORMAT_YUY2 AR_PIXEL_FORMAT_yuvs
+
+/*--------------------------------------------------------------*/
+/*                                                              */
+/*  For Linux, you should define one of below 4 input method    */
+/*    AR_INPUT_V4L:       use of standard Video4Linux Library   */
+/*    AR_INPUT_GSTREAMER: use of GStreamer Media Framework      */
+/*    AR_INPUT_DV:        use of DV Camera                      */
+/*    AR_INPUT_1394CAM:   use of 1394 Digital Camera            */
+/*                                                              */
+/*--------------------------------------------------------------*/
 #ifdef __linux
 #undef  AR_INPUT_V4L
 #undef  AR_INPUT_DV
 #undef  AR_INPUT_1394CAM
+#undef  AR_INPUT_GSTREAMER
 
 #  ifdef AR_INPUT_V4L
 #    ifdef USE_EYETOY
-#     define AR_PIX_FORMAT_RGB
+#      define AR_DEFAULT_PIXEL_FORMAT AR_PIXEL_FORMAT_RGB
 #    else
-#    define  AR_PIX_FORMAT_BGR
+#      define AR_DEFAULT_PIXEL_FORMAT AR_PIXEL_FORMAT_BGR
 #    endif
-#    undef   AR_PIX_FORMAT_BGRA
 #  endif
 
 #  ifdef AR_INPUT_DV
-#    define  AR_PIX_FORMAT_RGB
-#    undef   AR_PIX_FORMAT_BGRA
+#    define  AR_DEFAULT_PIXEL_FORMAT AR_PIXEL_FORMAT_RGB
 #  endif
 
 #  ifdef AR_INPUT_1394CAM
-#    define  AR_PIX_FORMAT_RGB
+#    define  AR_DEFAULT_PIXEL_FORMAT AR_PIXEL_FORMAT_RGB
+#  endif
+
+#  ifdef AR_INPUT_GSTREAMER
+#    define  AR_DEFAULT_PIXEL_FORMAT AR_PIXEL_FORMAT_RGB
 #  endif
 
 #  undef   AR_BIG_ENDIAN
@@ -43,7 +105,7 @@
 #ifdef __sgi
 #  define  AR_BIG_ENDIAN
 #  undef   AR_LITTLE_ENDIAN
-#  define  AR_PIX_FORMAT_ABGR
+#  define  AR_DEFAULT_PIXEL_FORMAT AR_PIXEL_FORMAT_ABGR
 #endif
 
 /*------------------------------------------------------------*/
@@ -52,16 +114,21 @@
 #ifdef _WIN32
 #  undef   AR_BIG_ENDIAN
 #  define  AR_LITTLE_ENDIAN
-#  define  AR_PIX_FORMAT_BGRA
+#  define  AR_DEFAULT_PIXEL_FORMAT AR_PIXEL_FORMAT_BGRA
 #endif
 
 /*------------------------------------------------------------*/
 /*  For Mac OS X                                              */
 /*------------------------------------------------------------*/
 #ifdef __APPLE__
-#  define  AR_BIG_ENDIAN
-#  undef   AR_LITTLE_ENDIAN
-#  define  AR_PIX_FORMAT_2vuy
+#  if defined(__BIG_ENDIAN__) // Check architecture endianess using gcc's macro.
+#    define  AR_BIG_ENDIAN  // Most Significant Byte has greatest address in memory (ppc).
+#    undef   AR_LITTLE_ENDIAN
+#  elif defined (__LITTLE_ENDIAN__)
+#    undef   AR_BIG_ENDIAN   // Least significant Byte has greatest address in memory (i386).
+#    define  AR_LITTLE_ENDIAN
+#  endif
+#  define  AR_DEFAULT_PIXEL_FORMAT AR_PIXEL_FORMAT_ARGB
 #endif
 
 
@@ -97,37 +164,14 @@
 #  endif
 
 #  ifdef AR_INPUT_DV
-#    define   VIDEO_MODE_PAL              0
-#    define   VIDEO_MODE_NTSC             1
-#    define   DEFAULT_VIDEO_MODE          VIDEO_MODE_NTSC
+/* Defines all moved into video.c now - they are not used anywhere else */
 #  endif
 
 #  ifdef AR_INPUT_1394CAM
-#undef    DRAGONFLY
-#    define   VIDEO_NODE_ANY                      -1
-#    define   VIDEO_MODE_320x240_YUV422           32
-#    define   VIDEO_MODE_640x480_YUV411           33
-#    define   VIDEO_MODE_640x480_RGB              34
-#    define   VIDEO_MODE_640x480_YUV411_HALF      35
-#    define   VIDEO_MODE_640x480_MONO             36
-#    define   VIDEO_MODE_640x480_MONO_COLOR       37
-#    define   VIDEO_MODE_640x480_MONO_COLOR_HALF  38
-#    define   VIDEO_FRAME_RATE_1_875               1
-#    define   VIDEO_FRAME_RATE_3_75                2
-#    define   VIDEO_FRAME_RATE_7_5                 3
-#    define   VIDEO_FRAME_RATE_15                  4
-#    define   VIDEO_FRAME_RATE_30                  5
-#    define   VIDEO_FRAME_RATE_60                  6
-#    define   DEFAULT_VIDEO_NODE                   VIDEO_NODE_ANY
-#    ifndef   DRAGONFLY
-#      define   DEFAULT_VIDEO_MODE                   VIDEO_MODE_640x480_YUV411_HALF
-#    else
-#      define   DEFAULT_VIDEO_MODE                   VIDEO_MODE_640x480_MONO_COLOR_HALF
-#    endif
-#    define   DEFAULT_VIDEO_FRAME_RATE             VIDEO_FRAME_RATE_30
+/* Defines all moved into video.c now - they are not used anywhere else */
 #  endif
 
-#  define   DEFAULT_IMAGE_PROC_MODE     AR_IMAGE_PROC_IN_HALF
+#  define   DEFAULT_IMAGE_PROC_MODE     AR_IMAGE_PROC_IN_FULL
 #  define   DEFAULT_FITTING_MODE        AR_FITTING_TO_IDEAL
 #  define   DEFAULT_DRAW_MODE           AR_DRAW_BY_TEXTURE_MAPPING
 #  define   DEFAULT_DRAW_TEXTURE_IMAGE  AR_DRAW_TEXTURE_HALF_IMAGE
@@ -137,7 +181,7 @@
 #  define   VIDEO_FULL                  0
 #  define   VIDEO_HALF                  1
 #  define   DEFAULT_VIDEO_SIZE          VIDEO_FULL
-#  define   DEFAULT_IMAGE_PROC_MODE     AR_IMAGE_PROC_IN_HALF
+#  define   DEFAULT_IMAGE_PROC_MODE     AR_IMAGE_PROC_IN_FULL
 #  define   DEFAULT_FITTING_MODE        AR_FITTING_TO_INPUT
 #  define   DEFAULT_DRAW_MODE           AR_DRAW_BY_GL_DRAW_PIXELS
 #  define   DEFAULT_DRAW_TEXTURE_IMAGE  AR_DRAW_TEXTURE_HALF_IMAGE
@@ -153,7 +197,7 @@
 #ifdef __APPLE__
 #  define   DEFAULT_VIDEO_WIDTH         640
 #  define   DEFAULT_VIDEO_HEIGHT        480
-#  define   DEFAULT_IMAGE_PROC_MODE     AR_IMAGE_PROC_IN_HALF
+#  define   DEFAULT_IMAGE_PROC_MODE     AR_IMAGE_PROC_IN_FULL
 #  define   DEFAULT_FITTING_MODE        AR_FITTING_TO_IDEAL
 #  define   DEFAULT_DRAW_MODE           AR_DRAW_BY_TEXTURE_MAPPING
 #  define   DEFAULT_DRAW_TEXTURE_IMAGE  AR_DRAW_TEXTURE_FULL_IMAGE
@@ -166,14 +210,16 @@
 
 
 
-#if defined(AR_PIX_FORMAT_ABGR) || defined(AR_PIX_FORMAT_BGRA) || defined(AR_PIX_FORMAT_RGBA) || defined(AR_PIX_FORMAT_ARGB)
-#  define AR_PIX_SIZE      4
-#elif defined(AR_PIX_FORMAT_BGR) || defined(AR_PIX_FORMAT_RGB)
-#  define AR_PIX_SIZE      3
-#elif defined(AR_PIX_FORMAT_2vuy) || defined(AR_PIX_FORMAT_yuvs)
-#  define AR_PIX_SIZE      2
+#if (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_ABGR) || (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGRA) || (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_RGBA) || (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_ARGB)
+#  define AR_PIX_SIZE_DEFAULT      4
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGR) || (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_RGB)
+#  define AR_PIX_SIZE_DEFAULT      3
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_2vuy) || (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_yuvs)
+#  define AR_PIX_SIZE_DEFAULT      2
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_MONO)
+#  define AR_PIX_SIZE_DEFAULT      1
 #else
-#  error Unknown pixel format defined in config.h.
+#  error Unknown default pixel format defined in config.h.
 #endif
 
 

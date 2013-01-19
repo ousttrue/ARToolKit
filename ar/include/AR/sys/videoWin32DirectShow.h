@@ -28,7 +28,7 @@
   * Austria.
   * ========================================================================*/
 /*
- *	Copyright (c) 2004-2004 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
+ *	Copyright (c) 2004-2007 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
  *	
  *	Rev		Date		Who		Changes
  *	2.6.8	2004-07-20	PRL		Rewrite for ARToolKit 2.68.2
@@ -38,19 +38,20 @@
 #ifndef AR_VIDEO_WIN32_DIRECTSHOW_H
 #define AR_VIDEO_WIN32_DIRECTSHOW_H
 
-#ifdef  __cplusplus
-extern "C" {
-#endif
-
 #include <AR/config.h>
 #include <AR/ar.h>
 
 #include <stdio.h>
 #include <string.h>
 
+#define AR_VIDEO_WIN32_DIRECTSHOW_2_71
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+	
 typedef struct _AR2VideoBufferT AR2VideoBufferT;
 typedef struct _AR2VideoParamT AR2VideoParamT;
-
 
 #ifdef  __cplusplus
 }

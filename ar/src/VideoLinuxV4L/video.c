@@ -143,24 +143,41 @@ int ar2VideoDispOption( void )
     return 0;
 }
 
-AR2VideoParamT *ar2VideoOpen( char *config )
+AR2VideoParamT *ar2VideoOpen( char *config_in )
 {
     AR2VideoParamT            *vid;
     struct video_capability   vd;
     struct video_channel      vc[MAXCHANNEL];
     struct video_picture      vp;
-    char                      *a, line[256];
+    char                      *config, *a, line[256];
     int                       i;
     int                       adjust = 1;
+
+
+	/* If no config string is supplied, we should use the environment variable, otherwise set a sane default */
+	if (!config_in || !(config_in[0])) {
+		/* None suppplied, lets see if the user supplied one from the shell */
+		char *envconf = getenv ("ARTOOLKIT_CONFIG");
+		if (envconf && envconf[0]) {
+			config = envconf;
+			printf ("Using config string from environment [%s].\n", envconf);
+		} else {
+			config = NULL;
+			printf ("No video config string supplied, using defaults.\n");
+		}
+	} else {
+		config = config_in;
+		printf ("Using supplied video config string [%s].\n", config_in);
+	}
     
     arMalloc( vid, AR2VideoParamT, 1 );
     strcpy( vid->dev, DEFAULT_VIDEO_DEVICE );
     vid->channel    = DEFAULT_VIDEO_CHANNEL; 
     vid->width      = DEFAULT_VIDEO_WIDTH;
     vid->height     = DEFAULT_VIDEO_HEIGHT;
-#if defined(AR_PIX_FORMAT_BGRA)
+#if (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGRA)
     vid->palette = VIDEO_PALETTE_RGB32;     /* palette format */
-#elif defined(AR_PIX_FORMAT_BGR) || defined(AR_PIX_FORMAT_RGB)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGR) || (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_RGB)
     vid->palette = VIDEO_PALETTE_RGB24;     /* palette format */
 #endif
     vid->contrast   = -1.;
@@ -172,7 +189,7 @@ AR2VideoParamT *ar2VideoOpen( char *config )
     vid->debug      = 0;
     vid->videoBuffer=NULL;
 
-    a = config;
+	a = config;
     if( a != NULL) {
         for(;;) {
             while( *a == ' ' || *a == '\t' ) a++;
@@ -211,9 +228,9 @@ AR2VideoParamT *ar2VideoOpen( char *config )
             }
             else if( strncmp( a, "-palette=", 9 ) == 0 ) {
                 if( strncmp( &a[9], "RGB", 3) == 0 ) {
-#if defined(AR_PIX_FORMAT_BGRA)
+#if (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGRA)
 		  vid->palette = VIDEO_PALETTE_RGB32;     /* palette format */
-#elif defined(AR_PIX_FORMAT_BGR)|| defined(AR_PIX_FORMAT_RGB)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGR)|| (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_RGB)
 		  vid->palette = VIDEO_PALETTE_RGB24;     /* palette format */
 #endif
 		}
@@ -576,9 +593,13 @@ ARUint8 *ar2VideoGetImage( AR2VideoParamT *vid )
     if(vid->palette == VIDEO_PALETTE_YUV420P)
     {
 
-        ccvt_420p_bgr24(vid->width, vid->height, buf, buf+(vid->width*vid->height),
+        /* ccvt_420p_bgr24(vid->width, vid->height, buf, buf+(vid->width*vid->height),
 	 	        buf+(vid->width*vid->height)+(vid->width*vid->height)/4,
 		        vid->videoBuffer);
+		*/
+
+		ccvt_420p_bgr24(vid->width, vid->height, buf, vid->videoBuffer);
+
         return vid->videoBuffer;
     }
 #ifdef USE_EYETOY

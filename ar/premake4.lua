@@ -18,6 +18,7 @@ files {
     "src/Gl/gsub_lite.c",
     "src/Gl/gsubutil.c",
     "src/VideoWin32DirectShow/videoWin32DirectShow.cpp",
+    "include/**.h",
 }
 defines {
     "_WIN32_WINNT=0x0500",

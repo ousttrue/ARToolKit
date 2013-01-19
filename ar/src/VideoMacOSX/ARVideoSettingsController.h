@@ -1,5 +1,5 @@
 /*
- *	Copyright (c) 2005-2005 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
+ *	Copyright (c) 2005-2007 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
  *	
  *	Rev		Date		Who		Changes
  *	1.0.0	2005-03-08	PRL		Written.
@@ -39,7 +39,7 @@
 
 - (id)initInput:(int)inInputIndex withSeqGrabComponent:(SeqGrabComponent)inSeqGrab withSGChannel:(SGChannel)inSgchanVideo;
 - (void)dealloc;
-- (IBAction)sgConfigurationDialog:(id)sender;
+- (IBAction)sgConfigurationDialog:(id)sender withStandardDialog:(int)standardDialog;
 - (OSErr)loadUserData:(UserData *)outUserData fromDefaults:(NSUserDefaults *)inDefaults forKey:(NSString *)inKey;
 - (OSErr)saveUserData:(UserData)inUserData toDefaults:(NSUserDefaults *)inDefaults withKey:(NSString *)outKey;
 

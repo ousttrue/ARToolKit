@@ -7,7 +7,7 @@
  *
  */
 /*
- *	Copyright (c) 2003-2005 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
+ *	Copyright (c) 2003-2007 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
  *	
  *	Rev		Date		Who		Changes
  *	1.1.0	2003-09-09	PRL		Based on Apple "Son of MungGrab" sample code for QuickTime 6.
@@ -80,8 +80,12 @@
 
 #include <Carbon/Carbon.h>
 #include <QuickTime/QuickTime.h>
+#include <CoreServices/CoreServices.h>			// Gestalt()
 #include <pthread.h>
 #include <sys/time.h>
+#include <unistd.h>		// usleep()
+#include <sys/types.h>	// sysctlbyname()
+#include <sys/sysctl.h>	// sysctlbyname()
 #include <AR/config.h>
 #include <AR/ar.h>
 #include <AR/video.h>
@@ -91,8 +95,8 @@
 //	Private definitions
 // ============================================================================
 
-#define AR_VIDEO_DEBUG_BUFFERCOPY					// Uncomment to have ar2VideoGetImage() return a copy of video pixel data.
 //#define AR_VIDEO_SUPPORT_OLD_QUICKTIME		// Uncomment to allow use of non-thread safe QuickTime (pre-6.4).
+#define AR_VIDEO_DEBUG_FIX_DUAL_PROCESSOR_RACE
 
 #define AR_VIDEO_IDLE_INTERVAL_MILLISECONDS_MIN		20L
 #define AR_VIDEO_IDLE_INTERVAL_MILLISECONDS_MAX		100L
@@ -159,10 +163,9 @@ struct _AR2VideoParamT {
 	long					rowBytes;		// PRL.
 	long					bufSize;		// PRL.
 	ARUint8*				bufPixels;		// PRL.
-#ifdef AR_VIDEO_DEBUG_BUFFERCOPY
+	int						bufCopyFlag;	// PRL
 	ARUint8*				bufPixelsCopy1; // PRL.
 	ARUint8*				bufPixelsCopy2; // PRL.
-#endif // AR_VIDEO_DEBUG_BUFFERCOPY
 	int						grabber;			// PRL.
 	MatrixRecordPtr			scaleMatrixPtr; // PRL.
 	VdigGrabRef				pVdg;			// DH (seeSaw).
@@ -262,7 +265,11 @@ static ComponentResult MakeSequenceGrabChannel(SeqGrabComponent seqGrab, SGChann
     ComponentResult err = noErr;
     
     if ((err = SGNewChannel(seqGrab, VideoMediaType, psgchanVideo))) {
-		fprintf(stderr, "MakeSequenceGrabChannel(): SGNewChannel err=%ld\n", err);
+		if (err == couldntGetRequiredComponent) {
+			printf("ERROR: No camera connected. Please connect a camera and re-try.\n");
+		} else {
+			fprintf(stderr, "MakeSequenceGrabChannel(): SGNewChannel err=%ld\n", err);
+		}
 		goto endFunc;
 	}
 	
@@ -332,7 +339,7 @@ VdigGrabRef vdgAllocAndInit(const int grabber)
 	}
 	
 	if ((err = MakeSequenceGrabChannel(pVdg->seqGrab, &pVdg->sgchanVideo))) {
-		fprintf(stderr, "MakeSequenceGrabChannel err=%d.\n", err); 
+		if (err != couldntGetRequiredComponent) fprintf(stderr, "MakeSequenceGrabChannel err=%d.\n", err); 
 		free(pVdg);
 		return (NULL);
 	}
@@ -340,12 +347,12 @@ VdigGrabRef vdgAllocAndInit(const int grabber)
 	return (pVdg);
 }
 
-static ComponentResult vdgRequestSettings(VdigGrab* pVdg, const int showDialog, const int inputIndex)
+static ComponentResult vdgRequestSettings(VdigGrab* pVdg, const int showDialog, const int standardDialog, const int inputIndex)
 {
 	ComponentResult err;
 	
 	// Use the SG Dialog to allow the user to select device and compression settings
-	if (err = RequestSGSettings(inputIndex, pVdg->seqGrab, pVdg->sgchanVideo, showDialog)) {
+	if (err = RequestSGSettings(inputIndex, pVdg->seqGrab, pVdg->sgchanVideo, showDialog, standardDialog)) {
 		fprintf(stderr, "RequestSGSettings err=%ld\n", err); 
 		goto endFunc;
 	}	
@@ -986,19 +993,14 @@ static void *ar2VideoInternalThread(void *arg)
 #endif // !AR_VIDEO_SUPPORT_OLD_QUICKTIME
 	AR2VideoParamT		*vid;
 	int					keepAlive = 1;
+
+#ifndef AR_VIDEO_DEBUG_FIX_DUAL_PROCESSOR_RACE
 	struct timeval		tv;  // Seconds and microseconds since Jan 1, 1970.
 	struct timespec		ts;  // Seconds and nanoseconds since Jan 1, 1970.
-	ComponentResult		err;
 	int					err_i;
+#endif // !AR_VIDEO_DEBUG_FIX_DUAL_PROCESSOR_RACE
+	ComponentResult		err;
 	int					isUpdated = 0;
-
-	// Variables for fps counter.
-	//float				fps = 0;
-	//float				averagefps = 0;
-	char				status[64];
-	Str255				theString;
-	CGrafPtr			theSavedPort;
-	GDHandle			theSavedDevice;
 
 	
 #ifndef AR_VIDEO_SUPPORT_OLD_QUICKTIME
@@ -1025,13 +1027,16 @@ static void *ar2VideoInternalThread(void *arg)
 	
 	while (keepAlive && vdgIsGrabbing(vid->pVdg)) {
 		
+#ifndef AR_VIDEO_DEBUG_FIX_DUAL_PROCESSOR_RACE
 		gettimeofday(&tv, NULL);
 		ts.tv_sec = tv.tv_sec;
-		ts.tv_nsec = tv.tv_usec * 1000 + vid->milliSecPerTimer * 1E6;
-		if (ts.tv_nsec >= 1E9) {
-			ts.tv_nsec -= 1E9;
+		ts.tv_nsec = tv.tv_usec * 1000 + vid->milliSecPerTimer * 1000000;
+		if (ts.tv_nsec >= 1000000000) {
+			ts.tv_nsec -= 1000000000;
 			ts.tv_sec += 1;
 		}
+#endif // AR_VIDEO_DEBUG_FIX_DUAL_PROCESSOR_RACE
+		
 #ifdef AR_VIDEO_SUPPORT_OLD_QUICKTIME
 		// Get a lock to access QuickTime (for SGIdle()), but only if more than one thread is running.
 		if (gVidCount > 1) {
@@ -1052,10 +1057,6 @@ static void *ar2VideoInternalThread(void *arg)
 			// You don't always know where these errors originate from, some may come
 			// from the VDig.
 			fprintf(stderr, "vdgIdle err=%ld.\n", err);
-			// ... to fix this we could simply call SGStop and SGStartRecord again
-			// calling stop allows the SG to release and re-prepare for grabbing
-			// hopefully fixing any problems, this is obviously a very relaxed
-			// approach.
 			keepAlive = 0;
 			break;
 		}
@@ -1075,6 +1076,12 @@ static void *ar2VideoInternalThread(void *arg)
 		if (isUpdated) {
 			// Write status information onto the frame if so desired.
 			if (vid->showFPS) {
+				
+				// Variables for fps counter.
+				//float				fps = 0;
+				//float				averagefps = 0;
+				char				status[64];
+				
 				// Reset frame and time counters after a stop/start.
 				/*
 				 if (vid->lastTime > time) {
@@ -1091,37 +1098,117 @@ static void *ar2VideoInternalThread(void *arg)
 					}
 				}
 				*/
+				//fps = (float)vid->timeScale / (float)(time - vid->lastTime);
+				//averagefps = (float)vid->frameCount * (float)vid->timeScale / (float)time;
+				//sprintf(status, "time: %ld, fps:%5.1f avg fps:%5.1f", time, fps, averagefps);
+				sprintf(status, "frame: %ld", vid->frameCount);
+#if 0
+				Str255 theString;
+				CGrafPtr theSavedPort;
+				GDHandle theSavedDevice;
 				GetGWorld(&theSavedPort, &theSavedDevice);
 				SetGWorld(vid->pGWorld, NULL);
 				TextSize(12);
 				TextMode(srcCopy);
 				MoveTo(vid->theRect.left + 10, vid->theRect.bottom - 14);
-				//fps = (float)vid->timeScale / (float)(time - vid->lastTime);
-				//averagefps = (float)vid->frameCount * (float)vid->timeScale / (float)time;
-				//sprintf(status, "time: %ld, fps:%5.1f avg fps:%5.1f", time, fps, averagefps);
-				sprintf(status, "frame: %ld", vid->frameCount);
 				CopyCStringToPascal(status, theString);
 				DrawString(theString);
 				SetGWorld(theSavedPort, theSavedDevice);
+#else
+				CGContextRef ctx;
+				QDBeginCGContext(vid->pGWorld, &ctx);
+				CFStringRef str = CFStringCreateWithCString(NULL, status, kCFStringEncodingMacRoman);
+				CGContextSelectFont(ctx, "Monaco", 12, kCGEncodingMacRoman);
+				CGContextSetTextDrawingMode(ctx, kCGTextFillStroke);
+				CGContextShowTextAtPoint(ctx, 10, 10, status, strlen(status));
+				CFRelease(str);
+				QDEndCGContext(vid->pGWorld, &ctx);
+#endif
 				//vid->lastTime = time;
 			}
-			
+			// Now copy the frame (if double-buffering).
+			if (vid->bufCopyFlag) {
+				if (vid->status & AR_VIDEO_STATUS_BIT_BUFFER) {
+					memcpy((void *)(vid->bufPixelsCopy2), (void *)(vid->bufPixels), vid->bufSize);
+				} else {
+					memcpy((void *)(vid->bufPixelsCopy1), (void *)(vid->bufPixels), vid->bufSize);
+				}
+			}
 			// Mark status to indicate we have a frame available.
 			vid->status |= AR_VIDEO_STATUS_BIT_READY;			
 		}
 		
+		// All done. Wewease Wodger!
+#ifndef AR_VIDEO_DEBUG_FIX_DUAL_PROCESSOR_RACE		
 		err_i = pthread_cond_timedwait(&(vid->condition), &(vid->bufMutex), &ts);
 		if (err_i != 0 && err_i != ETIMEDOUT) {
 			fprintf(stderr, "ar2VideoInternalThread(): Error %d waiting for condition.\n", err_i);
 			keepAlive = 0;
 			break;
 		}
+#else
+		ar2VideoInternalUnlock(&(vid->bufMutex));
+		usleep(vid->milliSecPerTimer * 1000);
+		if (!ar2VideoInternalLock(&(vid->bufMutex))) {
+			fprintf(stderr, "ar2VideoInternalThread(): Unable to lock mutex, exiting.\n");
+			keepAlive = 0;
+			break;
+		}
+#endif // AR_VIDEO_DEBUG_FIX_DUAL_PROCESSOR_RACE
 		
 		pthread_testcancel();
 	}
 	
 	pthread_cleanup_pop(1);
 	return (NULL);
+}
+
+static int sysctlbyname_with_pid (const char *name, pid_t pid,
+								  void *oldp, size_t *oldlenp,
+								  void *newp, size_t newlen)
+{
+    if (pid == 0) {
+        if (sysctlbyname(name, oldp, oldlenp, newp, newlen) == -1)  {
+            fprintf(stderr, "sysctlbyname_with_pid(0): sysctlbyname  failed:"
+					"%s\n", strerror(errno));
+            return -1;
+        }
+    } else {
+        int mib[CTL_MAXNAME];
+        size_t len = CTL_MAXNAME;
+        if (sysctlnametomib(name, mib, &len) == -1) {
+            fprintf(stderr, "sysctlbyname_with_pid: sysctlnametomib  failed:"
+					"%s\n", strerror(errno));
+            return -1;
+        }
+        mib[len] = pid;
+        len++;
+        if (sysctl(mib, len, oldp, oldlenp, newp, newlen) == -1)  {
+            fprintf(stderr, "sysctlbyname_with_pid: sysctl  failed:"
+                    "%s\n", strerror(errno));
+            return -1;
+        }
+    }
+    return 0;
+}
+
+// Pass 0 to use current PID.
+int is_pid_native (pid_t pid)
+{
+    int ret = 0;
+    size_t sz = sizeof(ret);
+	if (sysctlbyname_with_pid("sysctl.proc_native", pid,
+							  &ret, &sz, NULL, 0) == -1) {
+		if (errno == ENOENT) {
+            // sysctl doesn't exist, which means that this version of Mac OS
+            // pre-dates Rosetta, so the application must be native.
+            return 1;
+        }
+        fprintf(stderr, "is_pid_native: sysctlbyname_with_pid  failed:"
+                "%s\n", strerror(errno));
+        return -1;
+    }
+    return ret;
 }
 
 #pragma mark -
@@ -1149,103 +1236,132 @@ int ar2VideoDispOption(void)
 	printf(" -pixelformat=cccc\n");
     printf("    Return images with pixels in format cccc, where cccc is either a\n");
     printf("    numeric pixel format number or a valid 4-character-code for a\n");
-    printf("    pixel format. The following values are supported: \n");
-    printf("    32, BGRA, RGBA, ABGR, 24, 24BG, 2vuy, yuvs.\n");
+    printf("    pixel format.\n");
+	printf("    The following numeric values are supported: \n");
+	printf("    24 (24-bit RGB), 32 (32-bit ARGB), 40 (8-bit grey)");
+	printf("    The following 4-character-codes are supported: \n");
+    printf("    BGRA, RGBA, ABGR, 24BG, 2vuy, yuvs.\n");
     printf("    (See http://developer.apple.com/quicktime/icefloe/dispatch020.html.)\n");
+    printf(" -fliph\n");
+    printf("    Flip camera image horizontally.\n");
+    printf(" -flipv\n");
+    printf("    Flip camera image vertically.\n");
+    printf(" -singlebuffer\n");
+    printf("    Use single buffering of captured video instead of triple-buffering.\n");
     printf("\n");
 
     return (0);
 }
 
 
-AR2VideoParamT *ar2VideoOpen(char *config)
+AR2VideoParamT *ar2VideoOpen(char *config_in)
 {
-    static int			initF = 0;
 	long				qtVersion = 0L;
 	int					width = 0;
 	int					height = 0;
 	int					grabber = 1;
 	int					showFPS = 0;
 	int					showDialog = 1;
+	int					standardDialog = 0;
+	int					singleBuffer = 0;
+	int					flipH = 0, flipV = 0;
     OSErr				err_s = noErr;
 	ComponentResult		err = noErr;
 	int					err_i = 0;
     AR2VideoParamT		*vid = NULL;
-    char				*a, line[256];
+    char				*config, *a, line[256];
 #ifdef AR_VIDEO_SUPPORT_OLD_QUICKTIME
 	int					weLocked = 0;
 #endif // AR_VIDEO_SUPPORT_OLD_QUICKTIME
 	OSType				pixFormat = (OSType)0;
 	long				bytesPerPixel;
-	CGrafPtr			theSavedPort;
-	GDHandle			theSavedDevice;
-	Rect				sourceRect = {0, 0};
+	long				cpuType;
 	
+	/* If no config string is supplied, we should use the environment variable, otherwise set a sane default */
+	if (!config_in || !(config_in[0])) {
+		/* None suppplied, lets see if the user supplied one from the shell */
+		char *envconf = getenv ("ARTOOLKIT_CONFIG");
+		if (envconf && envconf[0]) {
+			config = envconf;
+			printf ("Using video config from environment \"%s\".\n", envconf);
+		} else {
+			config = NULL;
+			printf ("Using default video config.\n");
+		}
+	} else {
+		config = config_in;
+		printf ("Using supplied video config \"%s\".\n", config_in);
+	}
+
 	// Process configuration options.
 	a = config;
     if (a) {
-        for(;;) {
+		err_i = 0;
+        for (;;) {
             while (*a == ' ' || *a == '\t') a++; // Skip whitespace.
             if (*a == '\0') break;
 
             if (strncmp(a, "-width=", 7) == 0) {
                 sscanf(a, "%s", line);
-                if (sscanf( &line[7], "%d", &width) == 0 ) {
-                    ar2VideoDispOption();
-                    return(NULL);
-                }
+                if (strlen(line) <= 7 || sscanf(&line[7], "%d", &width) == 0) err_i = 1;
             } else if (strncmp(a, "-height=", 8) == 0) {
                 sscanf(a, "%s", line);
-                if (sscanf(&line[8], "%d", &height) == 0) {
-                    ar2VideoDispOption();
-                    return (NULL);
-                }
+                if (strlen(line) <= 8 || sscanf(&line[8], "%d", &height) == 0) err_i = 1;
             } else if (strncmp(a, "-grabber=", 9) == 0) {
                 sscanf(a, "%s", line);
-                if (sscanf(&line[9], "%d", &grabber) == 0) {
-                    ar2VideoDispOption();
-                    return (NULL);
-                }
+                if (strlen(line) <= 9 || sscanf(&line[9], "%d", &grabber) == 0) err_i = 1;
             } else if (strncmp(a, "-pixelformat=", 13) == 0) {
                 sscanf(a, "%s", line);
-                if (sscanf(&line[13], "%c%c%c%c", (char *)&pixFormat, ((char *)&pixFormat) + 1,
-						   ((char *)&pixFormat) + 2, ((char *)&pixFormat) + 3) < 4) { // Try 4-cc first.
-					if (sscanf(&line[13], "%li", (long *)&pixFormat) < 1) { // Fall back to integer.
-						ar2VideoDispOption();
-						return (NULL);
-					}
-                }
+				if (strlen(line) <= 13) err_i = 1;
+				else {
+					if (strlen(line) == 17) err_i = (sscanf(&line[13], "%4c", (char *)&pixFormat) < 1);
+					else err_i = (sscanf(&line[13], "%li", (long *)&pixFormat) < 1); // Integer.
+				}
             } else if (strncmp(a, "-fps", 4) == 0) {
                 showFPS = 1;
             } else if (strncmp(a, "-nodialog", 9) == 0) {
                 showDialog = 0;
+            } else if (strncmp(a, "-standarddialog", 15) == 0) {
+                standardDialog = 1;
+            } else if (strncmp(a, "-fliph", 6) == 0) {
+                flipH = 1;
+            } else if (strncmp(a, "-flipv", 6) == 0) {
+                flipV = 1;
+            } else if (strncmp(a, "-singlebuffer", 13) == 0) {
+                singleBuffer = 1;
             } else {
-                ar2VideoDispOption();
-                return (NULL);
+                err_i = 1;
             }
-
-            while (*a != ' ' && *a != '\t' && *a != '\0') a++; // Skip non-whitespace.
+			
+			if (err_i) {
+				ar2VideoDispOption();
+				return (NULL);
+			}
+            
+			while (*a != ' ' && *a != '\t' && *a != '\0') a++; // Skip to next whitespace.
         }
     }
 	// If no pixel format was specified in command-line options,
 	// assign the one specified at compile-time as the default.
 	if (!pixFormat) {
-#if defined(AR_PIX_FORMAT_2vuy)
+#if (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_2vuy)
 		pixFormat = k2vuyPixelFormat;		// k422YpCbCr8CodecType, k422YpCbCr8PixelFormat
-#elif defined(AR_PIX_FORMAT_yuvs)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_yuvs)
 		pixFormat = kYUVSPixelFormat;		// kComponentVideoUnsigned
-#elif defined(AR_PIX_FORMAT_RGB)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_RGB)
 		pixFormat = k24RGBPixelFormat;
-#elif defined(AR_PIX_FORMAT_BGR)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGR)
 		pixFormat = k24BGRPixelFormat;
-#elif defined(AR_PIX_FORMAT_ARGB)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_ARGB)
 		pixFormat = k32ARGBPixelFormat;
-#elif defined(AR_PIX_FORMAT_RGBA)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_RGBA)
 		pixFormat = k32RGBAPixelFormat;
-#elif defined(AR_PIX_FORMAT_ABGR)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_ABGR)
 		pixFormat = k32ABGRPixelFormat;
-#elif defined(AR_PIX_FORMAT_BGRA)
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGRA)
 		pixFormat = k32BGRAPixelFormat;
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_MONO)
+		pixFormat = k8IndexedGrayPixelFormat;
 #else
 #  error Unsupported default pixel format specified in config.h.
 #endif
@@ -1266,18 +1382,14 @@ AR2VideoParamT *ar2VideoOpen(char *config)
 		case k32RGBAPixelFormat:
 			bytesPerPixel = 4l;
 			break;
+		case k8IndexedGrayPixelFormat:
+			bytesPerPixel = 1l;
 		default:
 			fprintf(stderr, "ar2VideoOpen(): Unsupported pixel format requested.\n");
 			return(NULL);
 			break;			
 	}
 	
-	// Once only, initialize for Carbon.
-    if(initF == 0) {
-        InitCursor();
-        initF = 1;
-    }
-
 	// If there are no active grabbers, init QuickTime.
 	if (gVidCount == 0) {
 	
@@ -1336,19 +1448,41 @@ AR2VideoParamT *ar2VideoOpen(char *config)
 	//vid->lastTime		= 0;
 	//vid->timeScale	= 0;
 	vid->grabber		= grabber;
+	vid->bufCopyFlag	= !singleBuffer;
+	
+	// Find out if we are running on an Intel Mac.
+	if ((err_s = Gestalt(gestaltNativeCPUtype, &cpuType) != noErr)) {
+		fprintf(stderr, "ar2VideoOpen(): Error getting native CPU type.\n");
+		goto out1;
+	}
+	if (cpuType == gestaltCPUPentium) {
+		// We are running native on an Intel-based Mac.
+		//printf("Detected Intel CPU.\n");
+	} else {
+		int native = is_pid_native(0);
+		// We are not. But are we running under Rosetta?
+		if (native == 0) {
+			// We're running under Rosetta.
+			printf("Detected Intel CPU, but running PowerPC code under Rosetta.\n");
+		} else if (native == 1) {
+			//printf("Detected PowerPC CPU.\n");
+		} else {
+			// Error.
+		}
+	}
 
 	if(!(vid->pVdg = vdgAllocAndInit(grabber))) {
-		fprintf(stderr, "ar2VideoOpen(): vdgAllocAndInit err=%ld\n", err);
+		fprintf(stderr, "ar2VideoOpen(): vdgAllocAndInit returned error.\n");
 		goto out1;
 	}
 	
-	if (err = vdgRequestSettings(vid->pVdg, showDialog, gVidCount)) {
-		fprintf(stderr, "ar2VideoOpen(): vdgRequestSettings err=%ld\n", err);
+	if (err = vdgRequestSettings(vid->pVdg, showDialog, standardDialog, gVidCount)) {
+		fprintf(stderr, "ar2VideoOpen(): vdgRequestSettings err=%ld.\n", err);
 		goto out2;
 	}
 	
 	if (err = vdgPreflightGrabbing(vid->pVdg)) {
-		fprintf(stderr, "ar2VideoOpen(): vdgPreflightGrabbing err=%ld\n", err);
+		fprintf(stderr, "ar2VideoOpen(): vdgPreflightGrabbing err=%ld.\n", err);
 		goto out2;
 	}
 	
@@ -1358,7 +1492,7 @@ AR2VideoParamT *ar2VideoOpen(char *config)
 								&vid->milliSecPerFrame,
 								&vid->frameRate,
 								&vid->bytesPerSecond)) {
-		fprintf(stderr, "ar2VideoOpen(): vdgGetDataRate err=%ld\n", err);
+		fprintf(stderr, "ar2VideoOpen(): vdgGetDataRate err=%ld.\n", err);
 		//goto out2; 
 	}
 	if (err == noErr) {
@@ -1388,30 +1522,49 @@ AR2VideoParamT *ar2VideoOpen(char *config)
 	}
 	
 	// Report video size and compression type.
-	fprintf(stdout, "Video cType is %c%c%c%c, size is %dx%d.\n",
+	printf("Video cType is %c%c%c%c, size is %dx%d.\n",
 			(char)(((*(vid->vdImageDesc))->cType >> 24) & 0xFF),
 			(char)(((*(vid->vdImageDesc))->cType >> 16) & 0xFF),
 			(char)(((*(vid->vdImageDesc))->cType >>  8) & 0xFF),
 			(char)(((*(vid->vdImageDesc))->cType >>  0) & 0xFF),
 			((*vid->vdImageDesc)->width), ((*vid->vdImageDesc)->height));
-			
+	
 	// If a particular size was requested, set the size of the GWorld to
 	// the request, otherwise set it to the size of the incoming video.
 	vid->width = (width ? width : (int)((*vid->vdImageDesc)->width));
 	vid->height = (height ? height : (int)((*vid->vdImageDesc)->height));
-	SetRect(&(vid->theRect), 0, 0, (short)vid->width, (short)vid->height);
-	
+	SetRect(&(vid->theRect), 0, 0, (short)vid->width, (short)vid->height);	
+
 	// Make a scaling matrix for the sequence if size of incoming video differs from GWorld dimensions.
+	vid->scaleMatrixPtr = NULL;
+	int doSourceScale;
 	if (vid->width != (int)((*vid->vdImageDesc)->width) || vid->height != (int)((*vid->vdImageDesc)->height)) {
-		sourceRect.right = (*vid->vdImageDesc)->width;
-		sourceRect.bottom = (*vid->vdImageDesc)->height;
 		arMalloc(vid->scaleMatrixPtr, MatrixRecord, 1);
-		RectMatrix(vid->scaleMatrixPtr, &sourceRect, &(vid->theRect));
+		SetIdentityMatrix(vid->scaleMatrixPtr);
+		Fixed scaleX, scaleY;
+		scaleX = FixRatio(vid->width, (*vid->vdImageDesc)->width);
+		scaleY = FixRatio(vid->height, (*vid->vdImageDesc)->height);
+		ScaleMatrix(vid->scaleMatrixPtr, scaleX, scaleY, 0, 0);
 		fprintf(stdout, "Video will be scaled to size %dx%d.\n", vid->width, vid->height);
+		doSourceScale = 1;
 	} else {
-		vid->scaleMatrixPtr = NULL;
+		doSourceScale = 0;
 	}
 	
+	// If a flip was requested, add a scaling matrix for it.
+	if (flipH || flipV) {
+		Fixed scaleX, scaleY;
+		if (flipH) scaleX = -fixed1;
+		else scaleX = fixed1;
+		if (flipV) scaleY = -fixed1;
+		else scaleY = fixed1;
+		if (!doSourceScale) {
+			arMalloc(vid->scaleMatrixPtr, MatrixRecord, 1);
+			SetIdentityMatrix(vid->scaleMatrixPtr);
+		}
+		ScaleMatrix(vid->scaleMatrixPtr, scaleX, scaleY, FloatToFixed((float)(vid->width) * 0.5f), FloatToFixed((float)(vid->height) * 0.5f));
+	}
+
 	// Allocate buffer for the grabber to write pixel data into, and use
 	// QTNewGWorldFromPtr() to wrap an offscreen GWorld structure around
 	// it. We do it in these two steps rather than using QTNewGWorld()
@@ -1419,12 +1572,12 @@ AR2VideoParamT *ar2VideoOpen(char *config)
 	vid->rowBytes = vid->width * bytesPerPixel;
 	vid->bufSize = vid->height * vid->rowBytes;
 	if (!(vid->bufPixels = (ARUint8 *)valloc(vid->bufSize * sizeof(ARUint8)))) exit (1);
-#ifdef AR_VIDEO_DEBUG_BUFFERCOPY
-	// And another two buffers for OpenGL to read out of.
-	if (!(vid->bufPixelsCopy1 = (ARUint8 *)valloc(vid->bufSize * sizeof(ARUint8)))) exit (1);
-	if (!(vid->bufPixelsCopy2 = (ARUint8 *)valloc(vid->bufSize * sizeof(ARUint8)))) exit (1);
-#endif // AR_VIDEO_DEBUG_BUFFERCOPY
-	   // Wrap a GWorld around the pixel buffer.
+	if (vid->bufCopyFlag) {
+		// And another two buffers for OpenGL to read out of.
+		if (!(vid->bufPixelsCopy1 = (ARUint8 *)valloc(vid->bufSize * sizeof(ARUint8)))) exit (1);
+		if (!(vid->bufPixelsCopy2 = (ARUint8 *)valloc(vid->bufSize * sizeof(ARUint8)))) exit (1);
+	}
+	// Wrap a GWorld around the pixel buffer.
 	err_s = QTNewGWorldFromPtr(&(vid->pGWorld),			// returned GWorld
 							   pixFormat,				// format of pixels
 							   &(vid->theRect),			// bounds
@@ -1441,7 +1594,6 @@ AR2VideoParamT *ar2VideoOpen(char *config)
 	// Lock the pixmap and make sure it's locked because
 	// we can't decompress into an unlocked PixMap, 
 	// and open the default sequence grabber.
-	// TODO: Allow user to configure sequence grabber.
 	err_i = (int)LockPixels(GetGWorldPixMap(vid->pGWorld));
 	if (!err_i) {
 		fprintf(stderr,"ar2VideoOpen(): Unable to lock buffer for sequence grabbing.\n");
@@ -1449,12 +1601,23 @@ AR2VideoParamT *ar2VideoOpen(char *config)
 	}
 	
 	// Erase to black.
+#if 1
+	CGContextRef ctx;
+	QDBeginCGContext(vid->pGWorld, &ctx);
+	CGContextSetRGBFillColor(ctx, 0, 0, 0, 1);               
+	CGContextFillRect(ctx, CGRectMake(0, 0, (vid->theRect).left - (vid->theRect).right, (vid->theRect).top - (vid->theRect).bottom));
+	CGContextFlush(ctx);
+	QDEndCGContext (vid->pGWorld, &ctx);
+#else
+	CGrafPtr			theSavedPort;
+	GDHandle			theSavedDevice;
     GetGWorld(&theSavedPort, &theSavedDevice);    
     SetGWorld(vid->pGWorld, NULL);
     BackColor(blackColor);
     ForeColor(whiteColor);
     EraseRect(&(vid->theRect));
     SetGWorld(theSavedPort, theSavedDevice);
+#endif
 	
 	// Set the decompression destination to the offscreen GWorld.
 	if (err_s = vdgSetDestination(vid->pVdg, vid->pGWorld)) {
@@ -1484,10 +1647,10 @@ AR2VideoParamT *ar2VideoOpen(char *config)
 out6:
 	DisposeGWorld(vid->pGWorld);
 out5:
-#ifdef AR_VIDEO_DEBUG_BUFFERCOPY
-	free(vid->bufPixelsCopy2);
-	free(vid->bufPixelsCopy1);
-#endif // AR_VIDEO_DEBUG_BUFFERCOPY
+	if (vid->bufCopyFlag) {
+		free(vid->bufPixelsCopy2);
+		free(vid->bufPixelsCopy1);
+	}
 	free(vid->bufPixels);
 	if (vid->scaleMatrixPtr) free(vid->scaleMatrixPtr);
 out3:
@@ -1544,16 +1707,16 @@ int ar2VideoClose(AR2VideoParamT *vid)
         vid->pGWorld = NULL;
     }
 	
-#ifdef AR_VIDEO_DEBUG_BUFFERCOPY
-	if (vid->bufPixelsCopy2) {
-		free(vid->bufPixelsCopy2);
-		vid->bufPixelsCopy2 = NULL;
+	if (vid->bufCopyFlag) {
+		if (vid->bufPixelsCopy2) {
+			free(vid->bufPixelsCopy2);
+			vid->bufPixelsCopy2 = NULL;
+		}
+		if (vid->bufPixelsCopy1) {
+			free(vid->bufPixelsCopy1);
+			vid->bufPixelsCopy1 = NULL;
+		}
 	}
-	if (vid->bufPixelsCopy1) {
-		free(vid->bufPixelsCopy1);
-		vid->bufPixelsCopy1 = NULL;
-	}
-#endif // AR_VIDEO_DEBUG_BUFFERCOPY
 	if (vid->bufPixels) {
 		free(vid->bufPixels);
 		vid->bufPixels = NULL;
@@ -1745,12 +1908,6 @@ ARUint8 *ar2VideoGetImage(AR2VideoParamT *vid)
 {
 	ARUint8 *pix = NULL;
 
-	// Need lock to guarantee this thread exclusive access to vid.
-	if (!ar2VideoInternalLock(&(vid->bufMutex))) {
-		fprintf(stderr, "ar2VideoGetImage(): Unable to lock mutex.\n");
-		return (NULL);
-	}
-	
 	// ar2VideoGetImage() used to block waiting for a frame.
 	// This locked the OpenGL frame rate to the camera frame rate.
 	// Now, if no frame is currently available then we won't wait around for one.
@@ -1767,26 +1924,32 @@ ARUint8 *ar2VideoGetImage(AR2VideoParamT *vid)
 		// of non-alpha data. This was an awful hack which caused all sorts
 		// of problems and which can now be avoided after rewriting the
 		// various bits of the toolkit to cope.
-#ifdef AR_VIDEO_DEBUG_BUFFERCOPY
-		if (vid->status & AR_VIDEO_STATUS_BIT_BUFFER) {
-			memcpy((void *)(vid->bufPixelsCopy2), (void *)(vid->bufPixels), vid->bufSize);
-			pix = vid->bufPixelsCopy2;
-			vid->status &= ~AR_VIDEO_STATUS_BIT_BUFFER; // Clear buffer bit.
+		if (vid->bufCopyFlag) {
+			// Need lock to guarantee this thread exclusive access to vid.
+			if (!ar2VideoInternalLock(&(vid->bufMutex))) {
+				fprintf(stderr, "ar2VideoGetImage(): Unable to lock mutex.\n");
+				return (NULL);
+			}
+			if (vid->status & AR_VIDEO_STATUS_BIT_BUFFER) {
+				memcpy((void *)(vid->bufPixelsCopy2), (void *)(vid->bufPixels), vid->bufSize);
+				pix = vid->bufPixelsCopy2;
+				vid->status &= ~AR_VIDEO_STATUS_BIT_BUFFER; // Clear buffer bit.
+			} else {
+				memcpy((void *)(vid->bufPixelsCopy1), (void *)(vid->bufPixels), vid->bufSize);
+				pix = vid->bufPixelsCopy1;
+				vid->status |= AR_VIDEO_STATUS_BIT_BUFFER; // Set buffer bit.
+			}
+			if (!ar2VideoInternalUnlock(&(vid->bufMutex))) {
+				fprintf(stderr, "ar2VideoGetImage(): Unable to unlock mutex.\n");
+				return (NULL);
+			}
 		} else {
-			memcpy((void *)(vid->bufPixelsCopy1), (void *)(vid->bufPixels), vid->bufSize);
-			pix = vid->bufPixelsCopy1;
-			vid->status |= AR_VIDEO_STATUS_BIT_BUFFER; // Set buffer bit.
+			pix = vid->bufPixels;
 		}
-#else
-		pix = vid->bufPixels;
-#endif // AR_VIDEO_DEBUG_BUFFERCOPY
 
 		vid->status &= ~AR_VIDEO_STATUS_BIT_READY; // Clear ready bit.
+		
 	}
 	
-	if (!ar2VideoInternalUnlock(&(vid->bufMutex))) {
-		fprintf(stderr, "ar2VideoGetImage(): Unable to unlock mutex.\n");
-		return (NULL);
-	}
 	return (pix);
 }

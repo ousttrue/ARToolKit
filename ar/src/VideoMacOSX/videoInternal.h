@@ -1,5 +1,5 @@
 /*
- *	Copyright (c) 2005-2005 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
+ *	Copyright (c) 2005-2007 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
  *	
  *	Rev		Date		Who		Changes
  *	1.0.0	2005-03-08	PRL		Written.
@@ -35,7 +35,7 @@
 extern "C" {
 #endif
 
-OSStatus RequestSGSettings(const int inputIndex, SeqGrabComponent seqGrab, SGChannel sgchanVideo, const int showDialog);
+OSStatus RequestSGSettings(const int inputIndex, SeqGrabComponent seqGrab, SGChannel sgchanVideo, const int showDialog, const int standardDialog);
 
 #ifdef __cplusplus
 }

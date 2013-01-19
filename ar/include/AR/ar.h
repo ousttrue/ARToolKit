@@ -1,5 +1,5 @@
 /*  --------------------------------------------------------------------------
-*   Copyright (c) 20042-2005 HIT Lab NZ.
+*   Copyright (c) 20042-2007 HIT Lab NZ.
 *   The distribution policy is described in the file COPYING.txt furnished 
 *    with this library.
 *   -------------------------------------------------------------------------*/
@@ -54,10 +54,10 @@ extern "C" {
 /** \def arMalloc(V,T,S)
 * \brief allocation macro function
 *
-* allocate S element of type T.
+* allocate S elements of type T.
 * \param V returned allocated area pointer
 * \param T type of element
-* \param S number of element
+* \param S number of elements
 */
 #define arMalloc(V,T,S)  \
 { if( ((V) = (T *)malloc( sizeof(T) * (S) )) == 0 ) \
@@ -70,6 +70,66 @@ typedef int               ARInt32;
 typedef unsigned char     ARUint8;
 typedef unsigned short    ARUint16;
 typedef unsigned int      ARUint32;
+
+/** \typedef AR_PIXEL_FORMAT
+	\brief ARToolKit pixel-format specifiers.
+	
+	ARToolKit functions can accept pixel data in a variety of formats.
+	This enumerations provides a set of constants you can use to request
+	data in a particular pixel format from an ARToolKit function that
+	returns data to you, or to specify that data you are providing to an
+	ARToolKit function is in a particular pixel format.
+	
+	AR_PIXEL_FORMAT_RGB
+	Each pixel is represented by 24 bits. Eight bits per each Red, Green,
+	and Blue component. This is the native 24 bit format for the Mac platform.
+	
+	AR_PIXEL_FORMAT_BGR
+	Each pixel is represented by 24 bits. Eight bits per each Blue, Red, and
+	Green component. This is the native 24 bit format for the Win32 platform.
+	
+	AR_PIXEL_FORMAT_RGBA
+	Each pixel is represented by 32 bits. Eight bits per each Red, Green,
+	Blue, and Alpha component.
+	
+	AR_PIXEL_FORMAT_BGRA
+	Each pixel is represented by 32 bits. Eight bits per each Blue, Green,
+	Red, and Alpha component. This is the native 32 bit format for the Win32
+	platform.
+	
+	AR_PIXEL_FORMAT_ABGR
+	Each pixel is represented by 32 bits. Eight bits per each Alpha, Blue,
+	Green, and Red component. This is the native 32 bit format for the SGI
+	platform.
+	
+	AR_PIXEL_FORMAT_ARGB
+	Each pixel is represented by 32 bits. Eight bits per each Alpha, Red,
+	Green, and Blue component. This is the native 32 bit format for the Mac
+	platform.
+	
+	AR_PIXEL_FORMAT_MONO
+	Each pixel is represented by 8 bits of luminance information.
+	
+	AR_PIXEL_FORMAT_2vuy
+	8-bit 4:2:2 Component Y'CbCr format. Each 16 bit pixel is represented
+	by an unsigned eight bit luminance component and two unsigned eight bit
+	chroma components. Each pair of pixels shares a common set of chroma
+	values. The components are ordered in memory; Cb, Y0, Cr, Y1. The
+	luminance components have a range of [16, 235], while the chroma value
+	has a range of [16, 240]. This is consistent with the CCIR601 spec.
+	This format is fairly prevalent on both Mac and Win32 platforms.
+	'2vuy' is the Apple QuickTime four-character code for this pixel format.
+	The equivalent Microsoft fourCC is 'UYVY'.
+	
+	AR_PIXEL_FORMAT_yuvs
+	8-bit 4:2:2 Component Y'CbCr format. Identical to the AR_PIXEL_FORMAT_2vuy except
+	each 16 bit word has been byte swapped. This results in a component
+	ordering of; Y0, Cb, Y1, Cr.
+	This is most prevalent yuv 4:2:2 format on both Mac and Win32 platforms.
+	'yuvs' is the Apple QuickTime four-character code for this pixel format.
+	The equivalent Microsoft fourCC is 'YUY2'.
+ */
+typedef int AR_PIXEL_FORMAT;
 
 /** \struct ARMarkerInfo
 * \brief main structure for detected marker.
@@ -211,6 +271,49 @@ extern int      arMatchingPCAMode;
 /*
    Initialization
 */
+
+/**
+ * \brief Get the ARToolKit version information in numberic and string format.
+ *
+ * As of version 2.72, ARToolKit now allows querying of the version number
+ * of the toolkit available at runtime. It is highly recommended that
+ * any calling program that depends on features in a certain
+ * ARToolKit version, check at runtime that it is linked to a version
+ * of ARToolKit that can supply those features. It is NOT sufficient
+ * to check the ARToolKit SDK header versions, since with ARToolKit implemented
+ * in dynamically-loaded libraries, there is no guarantee that the
+ * version of ARToolKit installed on the machine at run-time will as
+ * recent as the version of the ARToolKit SDK which the host
+ * program was compiled against.
+ * The version information is reported in binary-coded decimal format,
+ * and optionally in an ASCII string. See the config.h header
+ * for more discussion of the definition of major, minor, tiny and build
+ * version numbers.
+ * 
+ * \param versionStringRef
+ *	If non-NULL, the location pointed to will be filled
+ *	with a pointer to a string containing the version information.
+ *  Fields in the version string are separated by spaces. As of version
+ *  2.72.0, there is only one field implemented, and this field
+ *  contains the major, minor and tiny version numbers
+ *	in dotted-decimal format. The string is guaranteed to contain
+ *  at least this field in all future versions of the toolkit.
+ *  Later versions of the toolkit may add other fields to this string
+ *  to report other types of version information. The storage for the
+ *  string is malloc'ed inside the function. The caller is responsible
+ *  for free'ing the string.
+ *
+ * \return Returns the full version number of the ARToolKit in
+ *	binary coded decimal (BCD) format.
+ *  BCD format allows simple tests of version number in the caller
+ *  e.g. if ((arGetVersion(NULL) >> 16) > 0x0272) printf("This release is later than 2.72\n");
+ *	The major version number is encoded in the most-significant byte
+ *  (bits 31-24), the minor version number in the second-most-significant
+ *	byte (bits 23-16), the tiny version number in the third-most-significant
+ *  byte (bits 15-8), and the build version number in the least-significant
+ *	byte (bits 7-0).
+ */
+ARUint32 arGetVersion(char **versionStringRef);
 
 /**
 * \brief initialize camera parameters.
@@ -458,22 +561,31 @@ void   arUtilSleep( int msec );
 */
 
 /**
-* \brief extracted connected component from image.
+* \brief extract connected components from image.
 *
-* Labeling the input image, i.e. extracted connected component from the 
-* inptu video image.
-* \param image input image
+* Label the input image, i.e. extract connected components from the 
+* input video image.
+* \param image input image, as returned by arVideoGetImage()
 * \param thresh lighting threshold
-* \param label_num number of detected components
-* \param area XXXBK
-* \param pos XXXBK
-* \param clip XXXBK
-* \param label_ref XXXBK
-* \return XXXBK
+* \param label_num Ouput- number of detected components
+* \param area On return, if label_num > 0, points to an array of ints, one for each detected component.
+* \param pos On return, if label_num > 0, points to an array of doubles, one for each detected component.
+* \param clip On return, if label_num > 0, points to an array of ints, one for each detected component.
+* \param label_ref On return, if label_num > 0, points to an array of ints, one for each detected component.
+* \return returns a pointer to the labeled output image, ready for passing onto the next stage of processing.
 */
 ARInt16 *arLabeling( ARUint8 *image, int thresh,
                      int *label_num, int **area, double **pos, int **clip,
                      int **label_ref );
+
+/**
+ * \brief clean up static data allocated by arLabeling.
+ *
+ * In debug mode, arLabeling may allocate and use static storage.
+ * This function deallocates this storage.
+ */
+ void arLabelingCleanup(void);
+
 
 /**
 * \brief  XXXBK
@@ -536,9 +648,9 @@ int arGetCode( ARUint8 *image, int *x_coord, int *y_coord, int *vertex,
                int *code, int *dir, double *cf );
 
 /**
-* \brief return a normalized pattern from a video image.
+* \brief Get a normalized pattern from a video image.
 *
-* This function return a normalized pattern from a video image. The
+* This function returns a normalized pattern from a video image. The
 * format is a table with AR_PATT_SIZE_X by AR_PATT_SIZE_Y
 * \param image video input image
 * \param x_coord XXXBK

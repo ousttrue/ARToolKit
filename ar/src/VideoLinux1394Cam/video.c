@@ -1,3 +1,47 @@
+/*
+  1394 Linux Firewire Digital Camera Interface
+  Copyright (c) 2002-2007
+  Kiyoshi Kiyokawa (kiyo@crl.go.jp)
+  Hirokazu Kato (kato@sys.im.hiroshima-cu.ac.jp)
+  Wayne Piekarski (wayne@cs.unisa.edu.au)
+  
+  $Id: video.c,v 1.15 2007/01/23 00:39:28 philip_lamb Exp $
+  This source file is dual licensed under either the GPL or the LGPL license
+  by the authors of this software.
+  
+  --
+  
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  
+  --
+  
+  This library is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Public
+  License as published by the Free Software Foundation; either
+  version 2.1 of the License, or (at your option) any later version.
+  
+  This library is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Lesser General Public License for more details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with this library; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
+
+  
 /* 
  *   Revision: 1.0   Date: 2002/01/01
  *   Video capture subrutine for Linux/libdc1394 devices
@@ -12,8 +56,23 @@
  *   - Either autodetect of cameras or specifying the exact camera is now possible
  *   - Support for changing of various 1394 camera properties
  *
+ *
  *   Revision 1.1.1  Date: 2005/03/14
- *   Patch by Henrik Erkkonen to support version 11 of libdc1394.
+ *   - Patch by Henrik Erkkonen to support version 11 of libdc1394.
+ *   - (Removed in later 1.3 changes by Wayne)
+ *
+ *
+ *   Revision: 1.2   Date: 2005/07/20
+ *   Modifications by Wayne Piekarski ( wayne@cs.unisa.edu.au )
+ *   - Added support for Bayer image tiling for Point Grey DragonFly cameras
+ *
+ *
+ *   Revision: 1.3   Date: 2006/09/16 ( wayne@cs.unisa.edu.au )
+ *   - Stabilised interfaces around latest libdc1394 libraries
+ *   - Added various other cleanups and bug fixes to make the code more stable
+ *   - Added licensing allowing LGPL or existing GPL with permission from original authors
+ *   - Rearranged various constants from AR/config.h to make things easier to understand
+ *   - Better config string support with ARTOOLKIT_CONFIG to override defaults from the shell
  *
  */
 
@@ -45,8 +104,9 @@
 
 
 /* ----------------------- MAKE ANY #define CHANGES HERE ONLY -------------------------------- */
-/* This define controls if we use the new or old libDC1394 API functions. The new code is much
-   more stable for multiple cameras and so is recommended */
+/* This define controls if we use the new or old libDC1394 API functions. In the past there were
+   many development releases, but the latest 1.0.0 release is stable and modern Linux distributions
+   have all standardised on this, so there is no need to make changes here any more. */
 // #define LIBDC_8
 // #define LIBDC_9
 // #define LIBDC_10
@@ -59,6 +119,30 @@
 #define MAX_PORTS 4 /* This is the maximum number of Firewire cards we can have installed in the system, it is an arbitrary number */
 
 
+
+
+/* Defines that control various aspects of this code */
+#define   VIDEO_NODE_ANY                      -1
+#define   VIDEO_MODE_320x240_YUV422           32
+#define   VIDEO_MODE_640x480_YUV411           33
+#define   VIDEO_MODE_640x480_RGB              34
+#define   VIDEO_MODE_640x480_YUV411_HALF      35
+#define   VIDEO_MODE_640x480_MONO             36
+#define   VIDEO_MODE_640x480_MONO_COLOR       37
+#define   VIDEO_MODE_640x480_MONO_COLOR_HALF  38
+#define   VIDEO_FRAME_RATE_1_875               1
+#define   VIDEO_FRAME_RATE_3_75                2
+#define   VIDEO_FRAME_RATE_7_5                 3
+#define   VIDEO_FRAME_RATE_15                  4
+#define   VIDEO_FRAME_RATE_30                  5
+#define   VIDEO_FRAME_RATE_60                  6
+#define   DEFAULT_VIDEO_NODE                   VIDEO_NODE_ANY
+#define   DEFAULT_VIDEO_MODE                   VIDEO_MODE_640x480_YUV411_HALF
+#define   DEFAULT_VIDEO_FRAME_RATE             VIDEO_FRAME_RATE_30
+
+
+
+
 /* Error checking to ensure we have a proper configuration, and put some debugging out */
 #ifdef LIBDC_8
 #warning Compiling using original 0.8.3 libDC library (single camera only) - debian: libdc1394-8-dev
@@ -67,23 +151,30 @@
 #endif
 
 #ifdef LIBDC_9
-#warning Compiling using the newer and safer 0.9.1 libDC library (multiple camera support) - debian: libdc1394-9-dev
+#warning Compiling using an older 0.9.1 libDC library (multiple camera support) - debian: libdc1394-9-dev
 #define LIBDC_DEF
 #endif
 
 #ifdef LIBDC_10
-#warning Compiling using the newer and safer 0.9.5 libDC library (multiple camera support) - debian: libdc1394-10-dev
+#warning Compiling using an older 0.9.5 libDC library (multiple camera support) - debian: libdc1394-10-dev
 #define LIBDC_DEF
 #endif
 
 #ifdef LIBDC_11
-#warning Compiling using the 1.0.0 libDC library
+// #warning Compiling using the stable 1.0.0 libDC library (multiple camera support) - debian: libdc1394-11-dev
 #define LIBDC_DEF
 #endif
 
 #ifndef LIBDC_DEF
 #error One of the LIBDC_[8,9,10,11] macros must be defined to compile this code properly!
 #endif
+
+
+
+
+/* Here are some extra definitions to support Point Grey DragonFly cameras */
+#include "conversions.h"
+int ar2Video_dragonfly = -1;
 
 
 
@@ -98,24 +189,25 @@ int arVideoDispOption( void )
 int arVideoOpen( char *config )
 {
     if( gVid != NULL ) {
-        printf("Device has been opened!!\n");
-        return -1;
+      fprintf(stderr, "The device has already been opened!\n");
+      exit (1);
     }
     gVid = ar2VideoOpen( config );
-    if( gVid == NULL ) return -1;
-
+    if (gVid == NULL)
+      return (-1);
+    
     return 0;
 }
 
 int arVideoClose( void )
 {
-	int result;
-	
-    if( gVid == NULL ) return -1;
-
-	result = ar2VideoClose(gVid);
-	gVid = NULL;
-    return (result);
+  int result;
+  
+  if( gVid == NULL ) return -1;
+  
+  result = ar2VideoClose(gVid);
+  gVid = NULL;
+  return (result);
 }
 
 int arVideoInqSize( int *x, int *y )
@@ -169,8 +261,8 @@ static int ar2Video1394Init( int debug, int *card, int *node );
 
 int ar2VideoDispOption( void )
 {
-    printf("ARVideo may be configured using one or more of the following options,\n");
-    printf("separated by a space:\n\n");
+    printf ("\n");
+    printf("ARVideo may be configured using one or more of the following options, separated by a space:\n\n");
     printf(" -node=N\n");
     printf("    specifies detected node ID of a FireWire camera (-1: Any).\n");
     printf(" -card=N\n");
@@ -183,19 +275,21 @@ int ar2VideoDispOption( void )
     printf(" -[name]=N  where name is brightness, iris, shutter, gain, saturation, gamma, sharpness\n");
     printf("    (value must be a legal value for this parameter - use coriander to find what they are\n");
     printf("\n");
-
+    printf(" Note that if no config string is supplied, you can override it with the environment variable ARTOOLKIT_CONFIG\n");
+    printf("\n");
+    
     return 0;
 }
 
-AR2VideoParamT *ar2VideoOpen( char *config )
+AR2VideoParamT *ar2VideoOpen( char *config_in )
 {
     char                      video1394devname [128];
     AR2VideoParamT            *vid;
     ARUint32                  p1,p2;
     quadlet_t                 value;
-    char                      *a, line[256];
+    char                      *config, *a, line[256];
     int                       i;
-
+    
     int brightness = -1;
     int iris = -1;
     int shutter = -1;
@@ -215,8 +309,24 @@ AR2VideoParamT *ar2VideoOpen( char *config )
     vid->dma_buf_num  = 16;
     vid->debug        = 0;
     vid->status       = 0;
+    
+	/* If no config string is supplied, we should use the environment variable, otherwise set a sane default */
+	if (!config_in || !(config_in[0])) {
+		/* None suppplied, lets see if the user supplied one from the shell */
+		char *envconf = getenv ("ARTOOLKIT_CONFIG");
+		if (envconf && envconf[0]) {
+			config = envconf;
+			printf ("Using config string from environment [%s].\n", envconf);
+		} else {
+			config = NULL;
+			printf ("No video config string supplied, using defaults.\n");
+		}
+	} else {
+		config = config_in;
+		printf ("Using supplied video config string [%s].\n", config_in);
+	}
 
-    a = config;
+	a = config;
     if( a != NULL) {
         for(;;) {
             while( *a == ' ' || *a == '\t' ) a++;
@@ -300,6 +410,9 @@ AR2VideoParamT *ar2VideoOpen( char *config )
             else if( strncmp( a, "-debug", 6 ) == 0 ) {
                 vid->debug = 1;
             }
+	    else if( strncmp( a, "-adjust", 7 ) == 0 ) {
+	      /* Do nothing - this is for V4L compatibility */
+	    }
             else {
                 ar2VideoDispOption();
                 free( vid );
@@ -309,29 +422,36 @@ AR2VideoParamT *ar2VideoOpen( char *config )
             while( *a != ' ' && *a != '\t' && *a != '\0') a++;
         }
     }
-
+    
     
     if( initFlag == 0 )
       {
         if( ar2Video1394Init(vid->debug, &vid->card, &vid->node) < 0 )
-	  exit(0);
+	  {
+	    fprintf (stderr, "Could not initialise 1394\n");
+	    exit(1);
+	  }
         initFlag = 1;
-    }
-  
-    switch( vid->mode ) {
-        case VIDEO_MODE_320x240_YUV422:
-          vid->int_mode = MODE_320x240_YUV422;
-          break;
-        case VIDEO_MODE_640x480_YUV411:
-          vid->int_mode = MODE_640x480_YUV411;
-          break;
-        case VIDEO_MODE_640x480_RGB:
-          vid->int_mode = MODE_640x480_RGB;
-          break;
-        default:
-          printf("Sorry, Unsupported Video Format for IEEE1394 Camera.\n");
-          exit(1);
-    }
+      }
+    
+    switch( vid->mode )
+      {
+      case VIDEO_MODE_320x240_YUV422:
+	vid->int_mode = MODE_320x240_YUV422;
+	break;
+      case VIDEO_MODE_640x480_YUV411:
+	vid->int_mode = MODE_640x480_YUV411;
+	break;
+      case VIDEO_MODE_640x480_RGB:
+	vid->int_mode = MODE_640x480_RGB;
+	break;
+      default:
+	printf("Sorry, Unsupported Video Format for IEEE1394 Camera.\n");
+	exit(1);
+	break;
+      }
+    
+    
     switch( vid->rate ) {
         case VIDEO_FRAME_RATE_1_875:
           vid->int_rate = FRAMERATE_1_875;
@@ -352,10 +472,14 @@ AR2VideoParamT *ar2VideoOpen( char *config )
           vid->int_rate = FRAMERATE_60;
           break;
         default:
-          printf("Sorry, Unsupported Frame Rate for IEEE1394 Camera.\n");
+          fprintf(stderr, "Sorry, Unsupported Frame Rate for IEEE1394 Camera.\n");
           exit(1);
     }
-  
+    
+
+    
+    
+    
     /*-----------------------------------------------------------------------*/
     /*  report camera's features                                             */
     /*-----------------------------------------------------------------------*/
@@ -367,7 +491,7 @@ AR2VideoParamT *ar2VideoOpen( char *config )
     else if( vid->debug ) {
       dc1394_print_feature_set( &(vid->features) );
     }
-
+    
     
     /* Change the camera settings if we need to */
     if (iris != -1)
@@ -382,16 +506,16 @@ AR2VideoParamT *ar2VideoOpen( char *config )
       }
     
     
-    /* Dump out the new parameters now */
-    if (vid->debug)
-      dc1394_print_feature_set( &(vid->features) );
+    /* Dump out the new parameters now - this is only for code testing */
+    /* if (vid->debug)
+       dc1394_print_feature_set( &(vid->features) ); */
     
     
     /*-----------------------------------------------------------------------*/
     /*  check parameters                                                     */
     /*-----------------------------------------------------------------------*/
     if( dc1394_query_supported_formats(arV1394.handle, vid->node, &value) != DC1394_SUCCESS ) {
-        fprintf( stderr, "unable to query_supported_formats\n");
+      fprintf( stderr, "unable to query_supported_formats\n");
     }
     i = 31 - (FORMAT_VGA_NONCOMPRESSED - FORMAT_MIN);
     p1 = 1 << i;
@@ -400,15 +524,32 @@ AR2VideoParamT *ar2VideoOpen( char *config )
         fprintf( stderr, "unable to use this camera on VGA_NONCOMPRESSED format.\n");
         exit(0);
     }
+    
+    /* Check that the camera supports the particular video mode we asked for */
     dc1394_query_supported_modes(arV1394.handle, vid->node,  FORMAT_VGA_NONCOMPRESSED, &value);
     i = 31 - (vid->int_mode - MODE_FORMAT0_MIN);
     p1 = 1 << i;
     p2 = value & p1;
-    if( p2 == 0 ) {
-        fprintf( stderr, "Unsupported Mode for the specified camera.\n");
-        ar2VideoDispOption();
-        exit(0);
-    }
+    if( p2 == 0 )
+      {
+	/* Test if the camera supports mono, if so then it is probably a dragonfly camera which uses mono but with Bayer encoding */
+	i = 31 - (MODE_640x480_MONO - MODE_FORMAT0_MIN);
+	p1 = 1 << i;
+	p2 = value & p1;
+	if (p2 == 0)
+	  {
+	    fprintf( stderr, "Unsupported Mode for the specified camera.\n");
+	    ar2VideoDispOption();
+	    exit(0);
+	  }
+	else
+	  {
+	    fprintf (stderr, "Detected a mono camera, assuming DragonFly camera with Bayer image decoding\n");
+	    vid->int_mode = MODE_640x480_MONO;
+	    ar2Video_dragonfly = 1;
+	  }
+      }
+    
     dc1394_query_supported_framerates(arV1394.handle, vid->node, FORMAT_VGA_NONCOMPRESSED, vid->int_mode, &value);
     i = 31 - (vid->int_rate - FRAMERATE_MIN);
     p1 = 1 << i;
@@ -418,11 +559,20 @@ AR2VideoParamT *ar2VideoOpen( char *config )
         ar2VideoDispOption();
         exit(0);
     }
-
+    
+    
+    /* Decide on where the video1394 device nodes are, they can be either at
+       /dev/video1394/ or /dev/video1394-* depending on the distribution */
+    struct stat video_stat;
+    if (stat ("/dev/video1394", &video_stat) < 0)
+      sprintf (video1394devname, "/dev/video1394-%d", vid->card);
+    else
+      sprintf (video1394devname, "/dev/video1394/%d", vid->card);
+    
+    
     /*-----------------------------------------------------------------------*/
     /*  setup capture                                                        */
     /*-----------------------------------------------------------------------*/
-    sprintf (video1394devname, "/dev/video1394/%d", vid->card);
     if( dc1394_dma_setup_capture(arV1394.handle,
 			         vid->node,
 #ifndef LIBDC_8
@@ -438,7 +588,7 @@ AR2VideoParamT *ar2VideoOpen( char *config )
 #ifdef LIBDC_10
 				 0, /* do_extra_buffering */
 #endif
-#if !defined(LIBDC_8) || defined(LIBDC_11)
+#ifndef LIBDC_8
 				 1, video1394devname, /* drop_frames, dma_device_file */
 #endif
 			         &(vid->camera)) != DC1394_SUCCESS ) {
@@ -448,16 +598,16 @@ AR2VideoParamT *ar2VideoOpen( char *config )
                 "that the video mode,framerate and format are\n"
                 "supported by your camera\n",
                 __LINE__,__FILE__);
-        exit(0);
+        exit(1);
     }
   
     /* set trigger mode */
     if( dc1394_set_trigger_mode(arV1394.handle, vid->node, TRIGGER_MODE_0) != DC1394_SUCCESS ) {
         fprintf( stderr, "unable to set camera trigger mode (ignored)\n");
     }
-  
-    arMalloc( vid->image, ARUint8, (vid->camera.frame_width * vid->camera.frame_height * AR_PIX_SIZE) );
-
+    
+    arMalloc( vid->image, ARUint8, (vid->camera.frame_width * vid->camera.frame_height * AR_PIX_SIZE_DEFAULT) );
+    
     return vid;
 }
 
@@ -474,8 +624,8 @@ int ar2VideoClose( AR2VideoParamT *vid )
     free( vid );
     
     raw1394_destroy_handle(arV1394.handle);
-        initFlag = 0;
-
+    initFlag = 0;
+    
     return 0;
 } 
 
@@ -485,14 +635,18 @@ int ar2VideoCapStart( AR2VideoParamT *vid )
     
     
     if(vid->status != 0 && vid->status != 3){
-        printf("arVideoCapStart has already been called.\n");
+        fprintf(stderr, "arVideoCapStart has already been called.\n");
         return -1;
     }
-
+    
     /*-----------------------------------------------------------------------*/
     /*  setup capture                                                        */
     /*-----------------------------------------------------------------------*/
-    sprintf (video1394devname, "/dev/video1394/%d", vid->card);
+    struct stat video_stat;
+    if (stat ("/dev/video1394", &video_stat) < 0)
+      sprintf (video1394devname, "/dev/video1394-%d", vid->card);
+    else
+      sprintf (video1394devname, "/dev/video1394/%d", vid->card);
     if( vid->status == 3 ) {
         if( dc1394_dma_setup_capture(arV1394.handle,
 			             vid->node,
@@ -509,7 +663,7 @@ int ar2VideoCapStart( AR2VideoParamT *vid )
 #ifdef LIBDC_10
 				     0, /* do_extra_buffering */
 #endif
-#if !defined(LIBDC_8) || defined(LIBDC_11)
+#ifndef LIBDC_8
 				     1, video1394devname, /* drop_frames, dma_device_file */
 #endif
 			             &(vid->camera)) != DC1394_SUCCESS ) {
@@ -519,7 +673,7 @@ int ar2VideoCapStart( AR2VideoParamT *vid )
                     "that the video mode,framerate and format are\n"
                     "supported by your camera\n",
                     __LINE__,__FILE__);
-            exit(0);
+            exit(1);
         }
     }
 
@@ -536,7 +690,7 @@ int ar2VideoCapStart( AR2VideoParamT *vid )
 int ar2VideoCapNext( AR2VideoParamT *vid )
 {
     if(vid->status == 0 || vid->status == 3){
-        printf("arVideoCapStart has never been called.\n");
+        fprintf(stderr, "arVideoCapStart has never been called.\n");
         return -1;
     }
     if(vid->status == 2) vid->status = 1;
@@ -554,13 +708,13 @@ int ar2VideoCapStop( AR2VideoParamT *vid )
         }
     }
     if(vid->status == 0){
-        printf("arVideoCapStart has never been called.\n");
+        fprintf(stderr, "arVideoCapStart has never been called.\n");
         return -1;
     }
     vid->status = 3;
 
     if( dc1394_stop_iso_transmission(arV1394.handle, vid->node) != DC1394_SUCCESS ) {
-        printf("couldn't stop the camera?\n");
+        fprintf(stderr, "couldn't stop the camera?\n");
         return -1;
     }
 
@@ -586,16 +740,16 @@ ARUint8 *ar2VideoGetImage( AR2VideoParamT *vid )
     register ARUint8 r, g, b;
 
     if(vid->status == 0){
-        printf("arVideoCapStart has never been called.\n");
+        fprintf(stderr, "arVideoCapStart has never been called.\n");
         return NULL;
     }
     if(vid->status == 2){
-        printf("arVideoCapNext has never been called since previous arVideoGetImage.\n");
+        fprintf(stderr, "arVideoCapNext has never been called since previous arVideoGetImage.\n");
         return NULL;
     }
 
     if( dc1394_dma_single_capture( &(vid->camera) ) != DC1394_SUCCESS ) {
-        fprintf( stderr, "unable to capture a frame\n");
+        fprintf(stderr, "unable to capture a frame\n");
         return NULL;
     }
     vid->status = 2;
@@ -604,7 +758,76 @@ ARUint8 *ar2VideoGetImage( AR2VideoParamT *vid )
     switch( vid->int_mode ) {
         case MODE_640x480_RGB:
           return (ARUint8 *)vid->camera.capture_buffer;
-
+	  
+	  
+        case MODE_640x480_MONO:
+	  {
+	    /* We only currently support Bayer image decoding from Point Grey cameras */
+	    if (ar2Video_dragonfly < 0)
+	      {
+		fprintf (stderr, "It is not possible to be in mono mode without the dragonfly flag being set previously\n");
+		exit (1);
+	      }
+	    
+	    /* If the image data is NULL then we should immediately return to avoid doing an image conversion which probably won't work! */
+	    if (vid->camera.capture_buffer == NULL)
+	      return ((ARUint8 *)vid->camera.capture_buffer);
+	    
+	    /* This Bayer code was copied from LGPL'd code by Don Murray <donm@ptgrey.com>, and I then modified it to fix up a few things */
+	    
+	    /* Query the camera to detect the Bayer pattern type */
+	    quadlet_t qValue;
+	    GetCameraControlRegister (arV1394.handle, vid->node, 0x1040, &qValue);
+	    bayer_pattern_t pattern = BAYER_PATTERN_BGGR;
+	    static bayer_pattern_t prev_pattern = -1;
+	    switch( qValue )
+	      {
+	      case 0x42474752:  /* BGGR */
+		pattern = BAYER_PATTERN_BGGR;
+		break;
+	      case 0x47524247:  /* GRBG */
+		pattern = BAYER_PATTERN_GRBG;
+		break;
+	      case 0x52474742:  /* RGGB */
+		pattern = BAYER_PATTERN_RGGB;
+		break;
+	      case 0x47425247:  /* GBRG */
+		pattern = BAYER_PATTERN_GBRG;
+		break;
+	      case 0x59595959:  /* YYYY = BW */
+		fprintf (stderr, "Camera is black and white, Bayer conversion is not possible\n");
+		exit (1);
+	      default:
+		if (prev_pattern == -1)
+		  {
+		    fprintf (stderr, "Camera BAYER_TILE_MAPPING register has an unexpected value 0x%x on initial startup, which should not occur\n", qValue);
+		    exit (1);
+		  }
+		else
+		  {
+		    /* This is a wierd bug where occasionally you get an invalid register value and I have no idea why this is */
+		    fprintf (stderr, "WARNING! The BAYER_TILE_MAPPING register has an unexpected value 0x%x, but I was able to use the previous stored result\n", qValue);
+		    pattern = prev_pattern;
+		  }
+	      }
+	    
+	    /* Store the previous Bayer pattern value */
+	    prev_pattern = pattern;
+	    
+	    /* Do the Bayer image conversion now */
+	    unsigned char *dest  = vid->image;
+	    unsigned char *src = (ARUint8 *)vid->camera.capture_buffer;
+	    BayerNearestNeighbor( src, 
+			    dest,
+			    vid->camera.frame_width,
+			    vid->camera.frame_height,
+			    pattern );
+	    
+	    /* Image is done, we can now return it! */
+	    return (vid->image);		
+	  }
+	  
+	  
         case MODE_640x480_YUV411:
           buf  = vid->image;
           buf2 = (ARUint8 *)vid->camera.capture_buffer;
@@ -737,7 +960,7 @@ static int ar2Video1394Init( int debug, int *card, int *node )
     if (((*card == -1) && (*node != -1)) ||
 	((*card != -1) && (*node == -1)))
       {
-	fprintf (stderr, "Card value is %d and node value is %d, you must either auto-detect both or specify both\n");
+	fprintf (stderr, "Card value is %d and node value is %d, you must either auto-detect both or specify both\n", *card, *node);
 	exit (1);
       }
     

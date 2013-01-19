@@ -7,6 +7,10 @@
 #include <AR/ar.h>
 #include <AR/video.h>
 
+#define VIDEO_MODE_PAL             0
+#define VIDEO_MODE_NTSC            1
+#define DEFAULT_VIDEO_MODE         VIDEO_MODE_NTSC
+
 #define ARV_BUF_FRAME_DATA    150000
 #define ARV_NTSC_FRAME_SIZE   120000
 #define ARV_PAL_FRAME_SIZE    144000
@@ -23,12 +27,12 @@ static AR2VideoParamT   *gVid = NULL;
 
 static void ar2VideoCapture(AR2VideoParamT *vid);
 static int ar2VideoRawISOHandler(raw1394handle_t handle, int channel, size_t length, quadlet_t *data);
-static int ar2VideBusResetHandler(raw1394handle_t handle, unsigned int generation);
+static int ar2VideoBusResetHandler(raw1394handle_t handle, unsigned int generation);
 static int ar2VideoBufferInit(AR2VideoBufferT *buffer, int size);
 static int ar2VideoBufferClose(AR2VideoBufferT *buffer);
-static int ar2VideoBufferRaed(AR2VideoBufferT *buffer, ARUint8 *dest, int size, int flag);
+static int ar2VideoBufferRead(AR2VideoBufferT *buffer, ARUint8 *dest, int size, int flag);
 static int ar2VideoBufferWrite(AR2VideoBufferT *buffer, ARUint8 *src, int size, int flag);
-static ARUint8 *ar2VideoBufferRaedDv(AR2VideoParamT *vid);
+static ARUint8 *ar2VideoBufferReadDV(AR2VideoParamT *vid);
 
 int arVideoDispOption( void )
 {
@@ -106,11 +110,11 @@ int ar2VideoDispOption( void )
     return 0;
 }
 
-AR2VideoParamT *ar2VideoOpen( char *config )
+AR2VideoParamT *ar2VideoOpen( char *config_in )
 {
     struct raw1394_portinfo    g_pinf[16];
     AR2VideoParamT            *vid;
-    char                      *a, line[256];
+    char                      *config, *a, line[256];
     int                        numcards;
     int                        i;
 
@@ -119,6 +123,22 @@ AR2VideoParamT *ar2VideoOpen( char *config )
     vid->debug      = 0;
     vid->status     = 0;
 
+	/* If no config string is supplied, we should use the environment variable, otherwise set a sane default */
+	if (!config_in || !(config_in[0])) {
+		/* None suppplied, lets see if the user supplied one from the shell */
+		char *envconf = getenv ("ARTOOLKIT_CONFIG");
+		if (envconf && envconf[0]) {
+			config = envconf;
+			printf ("Using config string from environment [%s].\n", envconf);
+		} else {
+			config = NULL;
+			printf ("No video config string supplied, using defaults.\n");
+		}
+	} else {
+		config = config_in;
+		printf ("Using supplied video config string [%s].\n", config_in);
+	}
+	
     a = config;
     if( a != NULL) {
         for(;;) {
@@ -133,11 +153,9 @@ AR2VideoParamT *ar2VideoOpen( char *config )
                     free( vid );
                     return 0;
                 }
-            }
-            else if( strncmp( a, "-debug", 6 ) == 0 ) {
+            } else if( strncmp( a, "-debug", 6 ) == 0 ) {
                 vid->debug = 1;
-            }
-            else {
+            } else {
                 ar2VideoDispOption();
                 free( vid );
                 return 0;
@@ -148,7 +166,7 @@ AR2VideoParamT *ar2VideoOpen( char *config )
     }
 
 
-    if((vid->handle = raw1394_new_handle()) == NULL) {
+    if ((vid->handle = raw1394_new_handle()) == NULL) {
         free( vid );
         perror("raw1394 - couldn't get handle");
         return NULL;
@@ -162,29 +180,37 @@ AR2VideoParamT *ar2VideoOpen( char *config )
     else {
         if( vid->debug ) {
             printf("NUMCARDS = %d\n", numcards);
-            for( i = 0; i < numcards; i++ ) { 
+            for (i = 0; i < numcards; i++) { 
                 printf("%2d: %s\n", g_pinf[i].nodes, g_pinf[i].name);
             }
         }
     }
 
     if (raw1394_set_port(vid->handle, 0) < 0) {
-        free( vid );
+        free(vid);
         perror("raw1394 - couldn't set port");
         return NULL;
     }
 
-    if( (vid->dv_decoder = dv_decoder_new(TRUE,FALSE,FALSE)) == 0 ) {
+    if ((vid->dv_decoder = dv_decoder_new((vid->mode == VIDEO_MODE_NTSC), FALSE, FALSE)) == 0) {
+		free(vid);
         return NULL;
     }
     vid->dv_decoder->quality = 5;
-    //dv_init();
+	if (vid->mode == VIDEO_MODE_NTSC) {
+		vid->dv_decoder->height = 480;
+		vid->dv_decoder->arg_video_system = 1; // video standard: 0=autoselect [default], 1=525/60 4:1:1 (NTSC), 2=625/50 4:2:0 (PAL,IEC 61834 DV), 3=625/50 4:1:1 (PAL,SMPTE 314M DV).
+	} else { // (vid->mode == VIDEO_MODE_PAL)
+		vid->dv_decoder->height = 576;
+		vid->dv_decoder->arg_video_system = 2;
+	}
+    dv_init(FALSE, FALSE);
 
     arMalloc( vid->buffer, AR2VideoBufferT, 1 );
     vid->buffer->init = 0;
     ar2VideoBufferInit( vid->buffer, ARV_BUF_FRAME_DATA );
 
-    arMalloc( vid->image, ARUint8, 720*576*4 );
+    arMalloc( vid->image, ARUint8, 720*576*4 ); // Make buffer big enough for PAL BGRA images.
 
     return vid;
 }
@@ -237,7 +263,7 @@ int ar2VideoClose( AR2VideoParamT *vid )
 static void ar2VideoCapture(AR2VideoParamT *vid)
 { 
     raw1394_set_userdata(vid->handle, vid);
-    raw1394_set_bus_reset_handler(vid->handle, ar2VideBusResetHandler);
+    raw1394_set_bus_reset_handler(vid->handle, ar2VideoBusResetHandler);
     raw1394_set_iso_handler(vid->handle, 63, ar2VideoRawISOHandler);
     if( raw1394_start_iso_rcv(vid->handle, 63) < 0 ) {
         perror("raw1394 - couldn't start iso receive");
@@ -299,7 +325,7 @@ static int ar2VideoRawISOHandler(raw1394handle_t handle, int channel, size_t len
     return len;
 }
 
-static int ar2VideBusResetHandler(raw1394handle_t handle, unsigned int generation)
+static int ar2VideoBusResetHandler(raw1394handle_t handle, unsigned int generation)
 {
     static int       i = 0;
     AR2VideoParamT  *vid = (AR2VideoParamT *)raw1394_get_userdata(handle);
@@ -312,13 +338,12 @@ static int ar2VideBusResetHandler(raw1394handle_t handle, unsigned int generatio
     return 0;
 }
 
-
 ARUint8 *ar2VideoGetImage( AR2VideoParamT *vid )
 {
-    return ar2VideoBufferRaedDv( vid );
+    return ar2VideoBufferReadDV( vid );
 }
 
-static ARUint8 *ar2VideoBufferRaedDv(AR2VideoParamT *vid)
+static ARUint8 *ar2VideoBufferReadDV(AR2VideoParamT *vid)
 {
     static int     f = 1;
     ARUint8       *tmp;
@@ -361,13 +386,14 @@ static ARUint8 *ar2VideoBufferRaedDv(AR2VideoParamT *vid)
         f = 0;
     }
 
-    pitches[0] = 720*AR_PIX_SIZE;
+    pitches[0] = 720*AR_PIX_SIZE_DEFAULT;
     pixels[0] =  vid->image;
-#ifdef AR_PIX_FORMAT_RGB
+#if (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_RGB)
     dv_decode_full_frame(vid->dv_decoder, vid->buffer->buff_out, e_dv_color_rgb, pixels, pitches );
-#endif
-#ifdef AR_PIX_FORMAT_BGRA
+#elif (AR_DEFAULT_PIXEL_FORMAT == AR_PIXEL_FORMAT_BGRA)
     dv_decode_full_frame(vid->dv_decoder, vid->buffer->buff_out, e_dv_color_bgr0, pixels, pitches );
+#else
+#  error Unsupported pixel format defined in <AR/config.h>.
 #endif
 
     return vid->image;
@@ -387,14 +413,6 @@ int ar2VideoInqSize(AR2VideoParamT *vid, int *x,int *y)
   
     return 0;
 }
-
-
-
-
-
-
-
-
 
 static int ar2VideoBufferInit(AR2VideoBufferT *buffer, int size)
 {
@@ -433,7 +451,7 @@ static int ar2VideoBufferClose(AR2VideoBufferT *buffer)
     return 0;
 }
 
-static int ar2VideoBufferRaed(AR2VideoBufferT *buffer, ARUint8 *dest, int size, int flag)
+static int ar2VideoBufferRead(AR2VideoBufferT *buffer, ARUint8 *dest, int size, int flag)
 {
     ARUint8   *tmp;
     int        read_size;

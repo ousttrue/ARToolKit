@@ -2,6 +2,7 @@
 ARToolKit(reorganized) 
 ======================
 ARToolKit-2.7.1.2とDSVL-0.0.8bをWindowsでビルドしやすいように再編成した。
+ARToolKit-2.7.2.1が最新だったので差し替え。
 
 license
 =======
@@ -9,7 +10,8 @@ ARToolKitとDSVLに基づいてGPL。
 
 history
 =======
-* 20130118: 新規。DSVLのiterの修正。DSVL, ARToolKitのdllを作らないようにした。
+* 20130118 新規。DSVLのiterの修正。DSVL, ARToolKitのdllを作らないようにした。
+* 20130119 ARToolKitを2.7.1.2から2.7.2.1に差し替え。
 
 require
 =======

@@ -3,7 +3,7 @@
  *
  *	Graphics Subroutines (Lite) for ARToolKit.
  *
- *	Copyright (c) 2003-2005 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
+ *	Copyright (c) 2003-2007 Philip Lamb (PRL) phil@eden.net.nz. All rights reserved.
  *	
  *	Rev		Date		Who		Changes
  *  2.7.0   2003-08-13  PRL     Complete rewrite to ARToolKit-2.65 gsub.c API.
@@ -17,6 +17,9 @@
  *	2.7.7	2005-07-26	PRL		Added cleanup routines for texture stuff.
  *	2.7.8	2005-07-29	PRL		Added distortion compensation enabling/disabling.
  *	2.7.9	2005-08-15	PRL		Added complete support for runtime selection of pixel format and rectangle/power-of-2 textures.
+ *	2.8.0	2006-04-04	PRL		Move pixel format constants into toolkit global namespace (in config.h).
+ *	2.8.1	2006-04-06	PRL		Move arglDrawMode, arglTexmapMode, arglTexRectangle out of global variables.
+ *  2.8.2   2006-06-12  PRL		More stringent runtime GL caps checking. Fix zoom for DRAWPIXELS mode.
  *
  */
 /*
@@ -76,6 +79,7 @@
 #    define GL_BGRA							0x80E1
 #  endif
 #  ifndef GL_APPLE_packed_pixels
+#    define GL_UNSIGNED_INT_8_8_8_8			0x8035
 #    define GL_UNSIGNED_INT_8_8_8_8_REV		0x8367
 #  endif
 #  if GL_SGIS_texture_edge_clamp
@@ -107,6 +111,11 @@
 #  define GL_PROXY_TEXTURE_RECTANGLE		0x84F7
 #  define GL_MAX_RECTANGLE_TEXTURE_SIZE		0x84F8
 #endif
+#ifndef GL_MESA_ycbcr_texture
+#  define GL_YCBCR_MESA						0x8757
+#  define GL_UNSIGNED_SHORT_8_8_MESA		0x85BA
+#  define GL_UNSIGNED_SHORT_8_8_REV_MESA	0x85BB
+#endif
 
 //#define ARGL_DEBUG
 
@@ -132,6 +141,9 @@ struct _ARGL_CONTEXT_SETTINGS {
 	GLenum	pixFormat;
 	GLenum	pixType;
 	GLenum	pixSize;
+	int	arglDrawMode;
+	int	arglTexmapMode;
+	int arglTexRectangle;	
 };
 typedef struct _ARGL_CONTEXT_SETTINGS ARGL_CONTEXT_SETTINGS;
 
@@ -139,27 +151,16 @@ typedef struct _ARGL_CONTEXT_SETTINGS ARGL_CONTEXT_SETTINGS;
 //	Public globals.
 // ============================================================================
 
-// It'd be nice if we could wrap these in accessor functions!
-int	arglDrawMode   = DEFAULT_DRAW_MODE;
-int	arglTexmapMode = DEFAULT_DRAW_TEXTURE_IMAGE;
-#ifdef AR_OPENGL_TEXTURE_RECTANGLE
-int arglTexRectangle = TRUE;
-#else
-int arglTexRectangle = FALSE;
-#endif // AR_OPENGL_TEXTURE_RECTANGLE
-
 // These items relate to Apple's fast texture transfer support.
-//#define ARGL_USE_TEXTURE_RANGE	// Commented out due to conflicts with GL_APPLE_ycbcr_422 extension.
-#if defined(__APPLE__) && defined(APPLE_TEXTURE_FAST_TRANSFER)
-int arglAppleClientStorage = TRUE; // TRUE | FALSE .
-#  ifdef ARGL_USE_TEXTURE_RANGE
-int arglAppleTextureRange = TRUE; // TRUE | FALSE .
-GLuint arglAppleTextureRangeStorageHint = GL_STORAGE_SHARED_APPLE; // GL_STORAGE_PRIVATE_APPLE | GL_STORAGE_SHARED_APPLE | GL_STORAGE_CACHED_APPLE .
+#ifdef __APPLE__
+#  ifdef APPLE_TEXTURE_FAST_TRANSFER
+int arglAppleClientStorage = TRUE;
+int arglAppleTextureRange = TRUE;
 #  else
-int arglAppleTextureRange = FALSE; // TRUE | FALSE .
-GLuint arglAppleTextureRangeStorageHint = GL_STORAGE_PRIVATE_APPLE; // GL_STORAGE_PRIVATE_APPLE | GL_STORAGE_SHARED_APPLE | GL_STORAGE_CACHED_APPLE .
-#  endif // ARGL_USE_TEXTURE_RANGE
-#endif // __APPLE__ && APPLE_TEXTURE_FAST_TRANSFER
+int arglAppleClientStorage = FALSE;
+int arglAppleTextureRange = FALSE;
+#  endif // APPLE_TEXTURE_FAST_TRANSFER
+#endif // __APPLE__
 
 // ============================================================================
 //	Private globals.
@@ -170,59 +171,6 @@ GLuint arglAppleTextureRangeStorageHint = GL_STORAGE_PRIVATE_APPLE; // GL_STORAG
 // ============================================================================
 //	Private functions.
 // ============================================================================
-
-//
-// Convert a camera parameter structure into an OpenGL projection matrix.
-//
-static void arglConvGLcpara(ARParam *param, double focalmin, double focalmax, double m[16])
-{
-    double   icpara[3][4];
-    double   trans[3][4];
-    double   p[3][3], q[4][4];
-    int      i, j;
-
-    if(arParamDecompMat(param->mat, icpara, trans) < 0) {
-        fprintf(stderr, "arglConvGLcpara(): arParamDecompMat() indicated parameter error.\n");
-        return;
-    }
-
-    for(i = 0; i < 3; i++) {
-        for(j = 0; j < 3; j++) {
-            p[i][j] = icpara[i][j] / icpara[2][2];
-        }
-    }
-    q[0][0] = (2.0 * p[0][0] / param->xsize);
-    q[0][1] = (2.0 * p[0][1] / param->xsize);
-    q[0][2] = ((2.0 * p[0][2] / param->xsize)  - 1.0);
-    q[0][3] = 0.0;
-
-    q[1][0] = 0.0;
-    q[1][1] = (2.0 * p[1][1] / param->ysize);
-    q[1][2] = ((2.0 * p[1][2] / param->ysize) - 1.0);
-    q[1][3] = 0.0;
-
-    q[2][0] = 0.0;
-    q[2][1] = 0.0;
-    q[2][2] = (focalmax + focalmin)/(focalmax - focalmin);
-    q[2][3] = -2.0 * focalmax * focalmin / (focalmax - focalmin);
-
-    q[3][0] = 0.0;
-    q[3][1] = 0.0;
-    q[3][2] = 1.0;
-    q[3][3] = 0.0;
-
-    for(i = 0; i < 4; i++) {
-        for(j = 0; j < 3; j++) {
-            m[i+j*4] = q[i][0] * trans[0][j]
-			+ q[i][1] * trans[1][j]
-			+ q[i][2] * trans[2][j];
-        }
-        m[i+3*4] = q[i][0] * trans[0][3]
-		+ q[i][1] * trans[1][3]
-		+ q[i][2] * trans[2][3]
-		+ q[i][3];
-    }
-}
 
 //
 //  Provide a gluCheckExtension() function, since some platforms don't have GLU version 1.3 or later.
@@ -291,181 +239,6 @@ static int arglGLCapabilityCheck(const unsigned short minVersion, const unsigned
 	return (FALSE);
 }
 
-static int arglDispImageTexRectangleCapabilitiesCheck(const ARParam *cparam, ARGL_CONTEXT_SETTINGS_REF contextSettings)
-{
-	GLint textureRectangleSizeMax;
-	GLint format;
-
-    if (!arglGLCapabilityCheck(0, (unsigned char *)"GL_NV_texture_rectangle")) {
-		if (!arglGLCapabilityCheck(0, (unsigned char *)"GL_EXT_texture_rectangle")) { // Alternate name.
-			return (FALSE);
-		}
-	}
-    glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE, &textureRectangleSizeMax);
-	if (cparam->xsize > textureRectangleSizeMax || cparam->ysize > textureRectangleSizeMax) {
-		return (FALSE);
-	}
-	
-	// Now check that the renderer can accomodate a texture of this size.
-	glTexImage2D(GL_PROXY_TEXTURE_RECTANGLE, 0, contextSettings->pixIntFormat, cparam->xsize, cparam->ysize, 0, contextSettings->pixFormat, contextSettings->pixType, NULL);
-	glGetTexLevelParameteriv(GL_PROXY_TEXTURE_RECTANGLE, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
-	if (!format) {
-		return (FALSE);
-	}
-	
-	contextSettings->textureRectangleCapabilitiesChecked = TRUE;	
-
-	return (TRUE);
-}
-
-static int arglCleanupTexRectangle(ARGL_CONTEXT_SETTINGS_REF contextSettings)
-{
-	if (!contextSettings->initedRectangle) return (FALSE);
-	
-	glDeleteTextures(1, &(contextSettings->textureRectangle));
-	glDeleteLists(contextSettings->listRectangle, 1);
-	contextSettings->textureRectangleCapabilitiesChecked = FALSE;
-	contextSettings->initedRectangle = FALSE;
-	return (TRUE);
-}
-
-//
-// Blit an image to the screen using OpenGL rectangle texturing.
-//
-static void arglDispImageTexRectangle(ARUint8 *image, const ARParam *cparam, const float zoom, ARGL_CONTEXT_SETTINGS_REF contextSettings, const int texmapScaleFactor)
-{
-	float	px, py, py_prev;
-    double	x1, x2, y1, y2;
-    float	xx1, xx2, yy1, yy2;
-	int		i, j;
-	
-    if(!contextSettings->initedRectangle || contextSettings->initPlease) {
-		
-		contextSettings->initPlease = FALSE;
-		// Delete previous texture and list, unless this is our first time here.
-		if (contextSettings->initedRectangle) arglCleanupTexRectangle(contextSettings);
-		
-		// If we have not done so, check texturing capabilities. If they have already been
-		// checked, and we got to here, then obviously the capabilities were insufficient,
-		// so just return without doing anything.
-		if (!contextSettings->textureRectangleCapabilitiesChecked) {
-			contextSettings->textureRectangleCapabilitiesChecked = TRUE;
-			if (!arglDispImageTexRectangleCapabilitiesCheck(cparam, contextSettings)) {
-				fprintf(stderr, "argl error: Your OpenGL implementation and/or hardware's texturing capabilities are insufficient to support rectangle textures.\n");
-				return;
-			}
-		} else {
-			return;
-		}
-		
-		// Set up the rectangle texture object.
-		glGenTextures(1, &(contextSettings->textureRectangle));
-		glBindTexture(GL_TEXTURE_RECTANGLE, contextSettings->textureRectangle);
-		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-#ifdef APPLE_TEXTURE_FAST_TRANSFER
-#  ifdef ARGL_USE_TEXTURE_RANGE
-		if (arglAppleTextureRange) {
-			glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE, cparam->xsize * cparam->ysize * contextSettings->pixSize, image);
-			glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_STORAGE_HINT_APPLE, arglAppleTextureRangeStorageHint);
-		} else {
-			glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE, 0, NULL);
-			glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_PRIVATE_APPLE);
-		}
-#endif // ARGL_USE_TEXTURE_RANGE
-		glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, arglAppleClientStorage);
-#endif // APPLE_TEXTURE_FAST_TRANSFER
-		
-		// Specify the texture to OpenGL.
-		if (texmapScaleFactor == 2) {
-			// If texmapScaleFactor is 2, pretend lines in the source image are
-			// twice as long as they are; glTexImage2D will read only the first
-			// half of each line, effectively discarding every second line in the source image.
-			glPixelStorei(GL_UNPACK_ROW_LENGTH, cparam->xsize*texmapScaleFactor);
-		}
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // Our image data is tightly packed.
-		glTexImage2D(GL_TEXTURE_RECTANGLE, 0, contextSettings->pixIntFormat, cparam->xsize, cparam->ysize/texmapScaleFactor, 0, contextSettings->pixFormat, contextSettings->pixType, image);
-		if (texmapScaleFactor == 2) {
-			glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-		}
-		
-		// Set up the surface which we will texture upon.
-		contextSettings->listRectangle = glGenLists(1);
-		glNewList(contextSettings->listRectangle, GL_COMPILE);
-		glEnable(GL_TEXTURE_RECTANGLE);
-		glMatrixMode(GL_TEXTURE);
-		glLoadIdentity();
-		glMatrixMode(GL_MODELVIEW);
-		
-		if (contextSettings->disableDistortionCompensation) {
-			glBegin(GL_QUADS);
-			glTexCoord2f(0.0f, (float)(cparam->ysize/texmapScaleFactor)); glVertex2f(0.0f, 0.0f);
-			glTexCoord2f((float)(cparam->xsize), (float)(cparam->ysize/texmapScaleFactor)); glVertex2f(cparam->xsize * zoom, 0.0f);
-			glTexCoord2f((float)(cparam->xsize), 0.0f); glVertex2f(cparam->xsize * zoom, cparam->ysize * zoom);
-			glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, cparam->ysize * zoom);
-			glEnd();
-		} else {
-			py_prev = 0.0f;
-			for(j = 1; j <= 20; j++) {	// Do 20 rows.
-				py = py_prev;
-				py_prev = cparam->ysize * j / 20.0f;
-				
-				glBegin(GL_QUAD_STRIP);
-				for(i = 0; i <= 20; i++) {	// Draw 21 pairs of vertices per row to make 20 columns.
-					px = cparam->xsize * i / 20.0f;
-					
-					arParamObserv2Ideal(cparam->dist_factor, (double)px, (double)py, &x1, &y1);
-					arParamObserv2Ideal(cparam->dist_factor, (double)px, (double)py_prev, &x2, &y2);
-					
-					xx1 = (float)x1 * zoom;
-					yy1 = (cparam->ysize - (float)y1) * zoom;
-					xx2 = (float)x2 * zoom;
-					yy2 = (cparam->ysize - (float)y2) * zoom;
-					
-					glTexCoord2f(px, py/texmapScaleFactor); glVertex2f(xx1, yy1);
-					glTexCoord2f(px, py_prev/texmapScaleFactor); glVertex2f(xx2, yy2);
-				}
-				glEnd();
-			}			
-		}
-		glDisable(GL_TEXTURE_RECTANGLE);
-		glEndList();
-
-		contextSettings->asInited_ysize = cparam->ysize;
-		contextSettings->asInited_xsize = cparam->xsize;
-		contextSettings->asInited_zoom = zoom;
-        contextSettings->asInited_texmapScaleFactor = texmapScaleFactor;
-        contextSettings->initedRectangle = TRUE;
-    }
-	
-    glBindTexture(GL_TEXTURE_RECTANGLE, contextSettings->textureRectangle);
-#ifdef APPLE_TEXTURE_FAST_TRANSFER
-#  ifdef ARGL_USE_TEXTURE_RANGE
-	if (arglAppleTextureRange) {
-		glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE, cparam->xsize * cparam->ysize * contextSettings->pixSize, image);
-		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_STORAGE_HINT_APPLE, arglAppleTextureRangeStorageHint);
-	} else {
-		glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE, 0, NULL);
-		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_PRIVATE_APPLE);
-	}
-#endif // ARGL_USE_TEXTURE_RANGE
-	glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, arglAppleClientStorage);
-#endif // APPLE_TEXTURE_FAST_TRANSFER
-	if (texmapScaleFactor == 2) {
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, cparam->xsize*texmapScaleFactor);
-	}
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glTexSubImage2D(GL_TEXTURE_RECTANGLE, 0, 0, 0, cparam->xsize, cparam->ysize/texmapScaleFactor, contextSettings->pixFormat, contextSettings->pixType, image);
-	glCallList(contextSettings->listRectangle);
-	if (texmapScaleFactor == 2) {
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	}
-    glBindTexture(GL_TEXTURE_RECTANGLE, 0);	
-}
-
 static int arglDispImageTexPow2CapabilitiesCheck(const ARParam *cparam, ARGL_CONTEXT_SETTINGS_REF contextSettings)
 {
 	GLint format;
@@ -492,14 +265,6 @@ static int arglDispImageTexPow2CapabilitiesCheck(const ARParam *cparam, ARGL_CON
 	}
 	
 	// Now check that the renderer can accomodate a texture of this size.
-#ifdef APPLE_TEXTURE_FAST_TRANSFER
-	// Can't use client storage or texture range.
-#  ifdef ARGL_USE_TEXTURE_RANGE
-	glTextureRangeAPPLE(GL_TEXTURE_2D, 0, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_PRIVATE_APPLE);
-#  endif // ARGL_USE_TEXTURE_RANGE
-	glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, FALSE);
-#endif // APPLE_TEXTURE_FAST_TRANSFER
 	glTexImage2D(GL_PROXY_TEXTURE_2D, 0, contextSettings->pixIntFormat, contextSettings->texturePow2SizeX, contextSettings->texturePow2SizeY, 0, contextSettings->pixFormat, contextSettings->pixType, NULL);
 	glGetTexLevelParameteriv(GL_PROXY_TEXTURE_2D, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
 	if (!format) {
@@ -512,8 +277,6 @@ static int arglDispImageTexPow2CapabilitiesCheck(const ARParam *cparam, ARGL_CON
 	} else {
 		contextSettings->texturePow2WrapMode = GL_REPEAT;
 	}
-	
-	contextSettings->texturePow2CapabilitiesChecked = TRUE;
 	
 	return (TRUE);
 }
@@ -552,7 +315,7 @@ static void arglDispImageTexPow2(ARUint8 *image, const ARParam *cparam, const fl
 		if (!contextSettings->texturePow2CapabilitiesChecked) {
 			contextSettings->texturePow2CapabilitiesChecked = TRUE;
 			if (!arglDispImageTexPow2CapabilitiesCheck(cparam, contextSettings)) {
-				fprintf(stderr, "argl error: Your OpenGL implementation and/or hardware's texturing capabilities are insufficient.\n");
+				printf("argl error: Your OpenGL implementation and/or hardware's texturing capabilities are insufficient.\n"); // Windows bug: when running multi-threaded, can't write to stderr!
 				return;
 			}
 		} else {
@@ -568,18 +331,25 @@ static void arglDispImageTexPow2(ARUint8 *image, const ARParam *cparam, const fl
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, contextSettings->texturePow2WrapMode);
 
 #ifdef APPLE_TEXTURE_FAST_TRANSFER
-#  ifdef ARGL_USE_TEXTURE_RANGE
 		// Can't use client storage or texture range.
 		glTextureRangeAPPLE(GL_TEXTURE_2D, 0, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_PRIVATE_APPLE);
-#  endif // ARGL_USE_TEXTURE_RANGE
 		glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, FALSE);
 #endif // APPLE_TEXTURE_FAST_TRANSFER
 
 		// Request OpenGL allocate memory for a power-of-two texture of the appropriate size.
+		if (texmapScaleFactor == 2) {
+			// If texmapScaleFactor is 2, pretend lines in the source image are
+			// twice as long as they are; glTexImage2D will read only the first
+			// half of each line, effectively discarding every second line in the source image.
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, cparam->xsize*texmapScaleFactor);
+		}
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		glTexImage2D(GL_TEXTURE_2D, 0, contextSettings->pixIntFormat, contextSettings->texturePow2SizeX, contextSettings->texturePow2SizeY, 0, contextSettings->pixFormat, contextSettings->pixType, NULL);
-				
+		glTexImage2D(GL_TEXTURE_2D, 0, contextSettings->pixIntFormat, contextSettings->texturePow2SizeX, contextSettings->texturePow2SizeY/texmapScaleFactor, 0, contextSettings->pixFormat, contextSettings->pixType, NULL);
+		if (texmapScaleFactor == 2) {
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+		}
+		
 		// Set up the surface which we will texture upon.
 		contextSettings->listPow2 = glGenLists(1);
 		glNewList(contextSettings->listPow2, GL_COMPILE); // NB Texture not specified yet so don't execute.
@@ -651,11 +421,9 @@ static void arglDispImageTexPow2(ARUint8 *image, const ARParam *cparam, const fl
 
     glBindTexture(GL_TEXTURE_2D, contextSettings->texturePow2);
 #ifdef APPLE_TEXTURE_FAST_TRANSFER
-#  ifdef ARGL_USE_TEXTURE_RANGE
 	// Can't use client storage or texture range.
 	glTextureRangeAPPLE(GL_TEXTURE_2D, 0, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_PRIVATE_APPLE);
-#endif // ARGL_USE_TEXTURE_RANGE
 	glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, FALSE);
 #endif // APPLE_TEXTURE_FAST_TRANSFER
 	if (texmapScaleFactor == 2) {
@@ -673,6 +441,178 @@ static void arglDispImageTexPow2(ARUint8 *image, const ARParam *cparam, const fl
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+static int arglDispImageTexRectangleCapabilitiesCheck(const ARParam *cparam, ARGL_CONTEXT_SETTINGS_REF contextSettings)
+{
+	GLint textureRectangleSizeMax;
+	GLint format;
+
+    if (!arglGLCapabilityCheck(0, (unsigned char *)"GL_NV_texture_rectangle")) {
+		if (!arglGLCapabilityCheck(0, (unsigned char *)"GL_EXT_texture_rectangle")) { // Alternate name.
+			return (FALSE);
+		}
+	}
+    glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE, &textureRectangleSizeMax);
+	if (cparam->xsize > textureRectangleSizeMax || cparam->ysize > textureRectangleSizeMax) {
+		return (FALSE);
+	}
+	
+	// Now check that the renderer can accomodate a texture of this size.
+	glTexImage2D(GL_PROXY_TEXTURE_RECTANGLE, 0, contextSettings->pixIntFormat, cparam->xsize, cparam->ysize, 0, contextSettings->pixFormat, contextSettings->pixType, NULL);
+	glGetTexLevelParameteriv(GL_PROXY_TEXTURE_RECTANGLE, 0, GL_TEXTURE_INTERNAL_FORMAT, &format);
+	if (!format) {
+		return (FALSE);
+	}
+	
+	return (TRUE);
+}
+
+static int arglCleanupTexRectangle(ARGL_CONTEXT_SETTINGS_REF contextSettings)
+{
+	if (!contextSettings->initedRectangle) return (FALSE);
+	
+	glDeleteTextures(1, &(contextSettings->textureRectangle));
+	glDeleteLists(contextSettings->listRectangle, 1);
+	contextSettings->textureRectangleCapabilitiesChecked = FALSE;
+	contextSettings->initedRectangle = FALSE;
+	return (TRUE);
+}
+
+//
+// Blit an image to the screen using OpenGL rectangle texturing.
+//
+static void arglDispImageTexRectangle(ARUint8 *image, const ARParam *cparam, const float zoom, ARGL_CONTEXT_SETTINGS_REF contextSettings, const int texmapScaleFactor)
+{
+	float	px, py, py_prev;
+    double	x1, x2, y1, y2;
+    float	xx1, xx2, yy1, yy2;
+	int		i, j;
+	
+    if(!contextSettings->initedRectangle || contextSettings->initPlease) {
+		
+		contextSettings->initPlease = FALSE;
+		// Delete previous texture and list, unless this is our first time here.
+		if (contextSettings->initedRectangle) arglCleanupTexRectangle(contextSettings);
+		
+		// If we have not done so, check texturing capabilities. If they have already been
+		// checked, and we got to here, then obviously the capabilities were insufficient,
+		// so just return without doing anything.
+		if (!contextSettings->textureRectangleCapabilitiesChecked) {
+			contextSettings->textureRectangleCapabilitiesChecked = TRUE;
+			if (!arglDispImageTexRectangleCapabilitiesCheck(cparam, contextSettings)) {
+				printf("argl error: Your OpenGL implementation and/or hardware's texturing capabilities are insufficient to support rectangle textures.\n"); // Windows bug: when running multi-threaded, can't write to stderr!
+				// Fall back to power of 2 texturing.
+				contextSettings->arglTexRectangle = FALSE;
+				arglDispImageTexPow2(image, cparam, zoom, contextSettings, texmapScaleFactor);
+				return;
+			}
+		} else {
+			return;
+		}
+		
+		// Set up the rectangle texture object.
+		glGenTextures(1, &(contextSettings->textureRectangle));
+		glBindTexture(GL_TEXTURE_RECTANGLE, contextSettings->textureRectangle);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+#ifdef APPLE_TEXTURE_FAST_TRANSFER
+		if (arglAppleTextureRange) {
+			glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE, cparam->xsize * cparam->ysize * contextSettings->pixSize, image);
+			glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_SHARED_APPLE);
+		} else {
+			glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE, 0, NULL);
+			glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_PRIVATE_APPLE);
+		}
+		glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, arglAppleClientStorage);
+#endif // APPLE_TEXTURE_FAST_TRANSFER
+		
+		// Specify the texture to OpenGL.
+		if (texmapScaleFactor == 2) {
+			// If texmapScaleFactor is 2, pretend lines in the source image are
+			// twice as long as they are; glTexImage2D will read only the first
+			// half of each line, effectively discarding every second line in the source image.
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, cparam->xsize*texmapScaleFactor);
+		}
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // Our image data is tightly packed.
+		glTexImage2D(GL_TEXTURE_RECTANGLE, 0, contextSettings->pixIntFormat, cparam->xsize, cparam->ysize/texmapScaleFactor, 0, contextSettings->pixFormat, contextSettings->pixType, image);
+		if (texmapScaleFactor == 2) {
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+		}
+		
+		// Set up the surface which we will texture upon.
+		contextSettings->listRectangle = glGenLists(1);
+		glNewList(contextSettings->listRectangle, GL_COMPILE);
+		glEnable(GL_TEXTURE_RECTANGLE);
+		glMatrixMode(GL_TEXTURE);
+		glLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+		
+		if (contextSettings->disableDistortionCompensation) {
+			glBegin(GL_QUADS);
+			glTexCoord2f(0.0f, (float)(cparam->ysize/texmapScaleFactor)); glVertex2f(0.0f, 0.0f);
+			glTexCoord2f((float)(cparam->xsize), (float)(cparam->ysize/texmapScaleFactor)); glVertex2f(cparam->xsize * zoom, 0.0f);
+			glTexCoord2f((float)(cparam->xsize), 0.0f); glVertex2f(cparam->xsize * zoom, cparam->ysize * zoom);
+			glTexCoord2f(0.0f, 0.0f); glVertex2f(0.0f, cparam->ysize * zoom);
+			glEnd();
+		} else {
+			py_prev = 0.0f;
+			for(j = 1; j <= 20; j++) {	// Do 20 rows.
+				py = py_prev;
+				py_prev = cparam->ysize * j / 20.0f;
+				
+				glBegin(GL_QUAD_STRIP);
+				for(i = 0; i <= 20; i++) {	// Draw 21 pairs of vertices per row to make 20 columns.
+					px = cparam->xsize * i / 20.0f;
+					
+					arParamObserv2Ideal(cparam->dist_factor, (double)px, (double)py, &x1, &y1);
+					arParamObserv2Ideal(cparam->dist_factor, (double)px, (double)py_prev, &x2, &y2);
+					
+					xx1 = (float)x1 * zoom;
+					yy1 = (cparam->ysize - (float)y1) * zoom;
+					xx2 = (float)x2 * zoom;
+					yy2 = (cparam->ysize - (float)y2) * zoom;
+					
+					glTexCoord2f(px, py/texmapScaleFactor); glVertex2f(xx1, yy1);
+					glTexCoord2f(px, py_prev/texmapScaleFactor); glVertex2f(xx2, yy2);
+				}
+				glEnd();
+			}			
+		}
+		glDisable(GL_TEXTURE_RECTANGLE);
+		glEndList();
+
+		contextSettings->asInited_ysize = cparam->ysize;
+		contextSettings->asInited_xsize = cparam->xsize;
+		contextSettings->asInited_zoom = zoom;
+        contextSettings->asInited_texmapScaleFactor = texmapScaleFactor;
+        contextSettings->initedRectangle = TRUE;
+    }
+
+    glBindTexture(GL_TEXTURE_RECTANGLE, contextSettings->textureRectangle);
+#ifdef APPLE_TEXTURE_FAST_TRANSFER
+	if (arglAppleTextureRange) {
+		glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE, cparam->xsize * cparam->ysize * contextSettings->pixSize, image);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_SHARED_APPLE);
+	} else {
+		glTextureRangeAPPLE(GL_TEXTURE_RECTANGLE, 0, NULL);
+		glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_STORAGE_HINT_APPLE, GL_STORAGE_PRIVATE_APPLE);
+	}
+	glPixelStorei(GL_UNPACK_CLIENT_STORAGE_APPLE, arglAppleClientStorage);
+#endif // APPLE_TEXTURE_FAST_TRANSFER
+	if (texmapScaleFactor == 2) {
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, cparam->xsize*texmapScaleFactor);
+	}
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexSubImage2D(GL_TEXTURE_RECTANGLE, 0, 0, 0, cparam->xsize, cparam->ysize/texmapScaleFactor, contextSettings->pixFormat, contextSettings->pixType, image);
+	glCallList(contextSettings->listRectangle);
+	if (texmapScaleFactor == 2) {
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	}
+    glBindTexture(GL_TEXTURE_RECTANGLE, 0);	
+}
+
 #pragma mark -
 // ============================================================================
 //	Public functions.
@@ -684,25 +624,14 @@ ARGL_CONTEXT_SETTINGS_REF arglSetupForCurrentContext(void)
 	
 	contextSettings = (ARGL_CONTEXT_SETTINGS_REF)calloc(1, sizeof(ARGL_CONTEXT_SETTINGS));
 	// Use default pixel format handed to us by <AR/config.h>.
-#if defined(AR_PIX_FORMAT_RGBA)
-	arglPixelFormatSet(contextSettings, ARGL_PIX_FORMAT_RGBA);
-#elif defined(AR_PIX_FORMAT_ABGR)
-	arglPixelFormatSet(contextSettings, ARGL_PIX_FORMAT_ABGR);
-#elif defined(AR_PIX_FORMAT_BGRA)
-	arglPixelFormatSet(contextSettings, ARGL_PIX_FORMAT_BGRA);
-#elif defined(AR_PIX_FORMAT_ARGB)
-	arglPixelFormatSet(contextSettings, ARGL_PIX_FORMAT_ARGB);
-#elif defined(AR_PIX_FORMAT_RGB)
-	arglPixelFormatSet(contextSettings, ARGL_PIX_FORMAT_RGB);
-#elif defined(AR_PIX_FORMAT_BGR)
-	arglPixelFormatSet(contextSettings, ARGL_PIX_FORMAT_BGR);
-#elif defined(AR_PIX_FORMAT_2vuy)
-	arglPixelFormatSet(contextSettings, ARGL_PIX_FORMAT_2vuy);
-#elif defined(AR_PIX_FORMAT_yuvs)
-	arglPixelFormatSet(contextSettings, ARGL_PIX_FORMAT_yuvs);
-#else
-#  error Unknown pixel format defined in config.h.
-#endif
+	if (!arglPixelFormatSet(contextSettings, AR_DEFAULT_PIXEL_FORMAT)) {
+		printf("Unknown default pixel format defined in config.h.\n"); // Windows bug: when running multi-threaded, can't write to stderr!
+		return (NULL);
+	}
+	arglDrawModeSet(contextSettings, AR_DRAW_BY_TEXTURE_MAPPING);
+	arglTexmapModeSet(contextSettings, AR_DRAW_TEXTURE_FULL_IMAGE);
+	arglTexRectangleSet(contextSettings, TRUE);
+
 	return (contextSettings);
 }
 
@@ -713,29 +642,170 @@ void arglCleanup(ARGL_CONTEXT_SETTINGS_REF contextSettings)
 	free(contextSettings);
 }
 
+//
+// Convert a camera parameter structure into an OpenGL projection matrix.
+//
 void arglCameraFrustum(const ARParam *cparam, const double focalmin, const double focalmax, GLdouble m_projection[16])
 {
-    int		i;
-	ARParam	cparam_copy;
+	double   icpara[3][4];
+    double   trans[3][4];
+    double   p[3][3], q[4][4];
+	int      width, height;
+    int      i, j;
+	
+    width  = cparam->xsize;
+    height = cparam->ysize;
 
-    cparam_copy = *cparam;
-	for (i = 0; i < 4; i++) {
-        cparam_copy.mat[1][i] = (cparam_copy.ysize - 1)*(cparam_copy.mat[2][i]) - cparam_copy.mat[1][i];
+    if (arParamDecompMat(cparam->mat, icpara, trans) < 0) {
+        printf("arglCameraFrustum(): arParamDecompMat() indicated parameter error.\n"); // Windows bug: when running multi-threaded, can't write to stderr!
+        return;
     }
-    arglConvGLcpara(&cparam_copy, focalmin, focalmax, m_projection);
-}
-
-void arglCameraView(double para[3][4], GLdouble m_modelview[16], double scale)
-{
-    int     i, j;
-
-    for(j = 0; j < 3; j++) {
-        for(i = 0; i < 4; i++) {
-            m_modelview[i*4+j] = para[j][i];
+	for (i = 0; i < 4; i++) {
+        icpara[1][i] = (height - 1)*(icpara[2][i]) - icpara[1][i];
+    }
+		
+    for(i = 0; i < 3; i++) {
+        for(j = 0; j < 3; j++) {
+            p[i][j] = icpara[i][j] / icpara[2][2];
         }
     }
-    m_modelview[0*4+3] = m_modelview[1*4+3] = m_modelview[2*4+3] = 0.0;
-    m_modelview[3*4+3] = 1.0;
+    q[0][0] = (2.0 * p[0][0] / (width - 1));
+    q[0][1] = (2.0 * p[0][1] / (width - 1));
+    q[0][2] = ((2.0 * p[0][2] / (width - 1))  - 1.0);
+    q[0][3] = 0.0;
+	
+    q[1][0] = 0.0;
+    q[1][1] = (2.0 * p[1][1] / (height - 1));
+    q[1][2] = ((2.0 * p[1][2] / (height - 1)) - 1.0);
+    q[1][3] = 0.0;
+	
+    q[2][0] = 0.0;
+    q[2][1] = 0.0;
+    q[2][2] = (focalmax + focalmin)/(focalmax - focalmin);
+    q[2][3] = -2.0 * focalmax * focalmin / (focalmax - focalmin);
+	
+    q[3][0] = 0.0;
+    q[3][1] = 0.0;
+    q[3][2] = 1.0;
+    q[3][3] = 0.0;
+	
+    for (i = 0; i < 4; i++) { // Row.
+		// First 3 columns of the current row.
+        for (j = 0; j < 3; j++) { // Column.
+            m_projection[i + j*4] = q[i][0] * trans[0][j] +
+									q[i][1] * trans[1][j] +
+									q[i][2] * trans[2][j];
+        }
+		// Fourth column of the current row.
+        m_projection[i + 3*4] = q[i][0] * trans[0][3] +
+								q[i][1] * trans[1][3] +
+								q[i][2] * trans[2][3] +
+								q[i][3];
+    }	
+}
+
+void arglCameraFrustumRH(const ARParam *cparam, const double focalmin, const double focalmax, GLdouble m_projection[16])
+{
+	double   icpara[3][4];
+    double   trans[3][4];
+    double   p[3][3], q[4][4];
+	int      width, height;
+    int      i, j;
+	
+    width  = cparam->xsize;
+    height = cparam->ysize;
+	
+    if (arParamDecompMat(cparam->mat, icpara, trans) < 0) {
+        printf("arglCameraFrustum(): arParamDecompMat() indicated parameter error.\n"); // Windows bug: when running multi-threaded, can't write to stderr!
+        return;
+    }
+	for (i = 0; i < 4; i++) {
+        icpara[1][i] = (height - 1)*(icpara[2][i]) - icpara[1][i];
+    }
+	
+    for(i = 0; i < 3; i++) {
+        for(j = 0; j < 3; j++) {
+            p[i][j] = icpara[i][j] / icpara[2][2];
+        }
+    }
+    q[0][0] = (2.0 * p[0][0] / (width - 1));
+    q[0][1] = (2.0 * p[0][1] / (width - 1));
+    q[0][2] = -((2.0 * p[0][2] / (width - 1))  - 1.0);
+    q[0][3] = 0.0;
+	
+    q[1][0] = 0.0;
+    q[1][1] = -(2.0 * p[1][1] / (height - 1));
+    q[1][2] = -((2.0 * p[1][2] / (height - 1)) - 1.0);
+    q[1][3] = 0.0;
+	
+    q[2][0] = 0.0;
+    q[2][1] = 0.0;
+    q[2][2] = (focalmax + focalmin)/(focalmin - focalmax);
+    q[2][3] = 2.0 * focalmax * focalmin / (focalmin - focalmax);
+	
+    q[3][0] = 0.0;
+    q[3][1] = 0.0;
+    q[3][2] = -1.0;
+    q[3][3] = 0.0;
+	
+    for (i = 0; i < 4; i++) { // Row.
+		// First 3 columns of the current row.
+        for (j = 0; j < 3; j++) { // Column.
+            m_projection[i + j*4] = q[i][0] * trans[0][j] +
+			q[i][1] * trans[1][j] +
+			q[i][2] * trans[2][j];
+        }
+		// Fourth column of the current row.
+        m_projection[i + 3*4] = q[i][0] * trans[0][3] +
+								q[i][1] * trans[1][3] +
+								q[i][2] * trans[2][3] +
+								q[i][3];
+    }	
+}
+
+void arglCameraView(const double para[3][4], GLdouble m_modelview[16], const double scale)
+{
+	m_modelview[0 + 0*4] = para[0][0]; // R1C1
+	m_modelview[0 + 1*4] = para[0][1]; // R1C2
+	m_modelview[0 + 2*4] = para[0][2];
+	m_modelview[0 + 3*4] = para[0][3];
+	m_modelview[1 + 0*4] = para[1][0]; // R2
+	m_modelview[1 + 1*4] = para[1][1];
+	m_modelview[1 + 2*4] = para[1][2];
+	m_modelview[1 + 3*4] = para[1][3];
+	m_modelview[2 + 0*4] = para[2][0]; // R3
+	m_modelview[2 + 1*4] = para[2][1];
+	m_modelview[2 + 2*4] = para[2][2];
+	m_modelview[2 + 3*4] = para[2][3];
+	m_modelview[3 + 0*4] = 0.0;
+	m_modelview[3 + 1*4] = 0.0;
+	m_modelview[3 + 2*4] = 0.0;
+	m_modelview[3 + 3*4] = 1.0;
+	if (scale != 0.0) {
+		m_modelview[12] *= scale;
+		m_modelview[13] *= scale;
+		m_modelview[14] *= scale;
+	}
+}
+
+void arglCameraViewRH(const double para[3][4], GLdouble m_modelview[16], const double scale)
+{
+	m_modelview[0 + 0*4] = para[0][0]; // R1C1
+	m_modelview[0 + 1*4] = para[0][1]; // R1C2
+	m_modelview[0 + 2*4] = para[0][2];
+	m_modelview[0 + 3*4] = para[0][3];
+	m_modelview[1 + 0*4] = -para[1][0]; // R2
+	m_modelview[1 + 1*4] = -para[1][1];
+	m_modelview[1 + 2*4] = -para[1][2];
+	m_modelview[1 + 3*4] = -para[1][3];
+	m_modelview[2 + 0*4] = -para[2][0]; // R3
+	m_modelview[2 + 1*4] = -para[2][1];
+	m_modelview[2 + 2*4] = -para[2][2];
+	m_modelview[2 + 3*4] = -para[2][3];
+	m_modelview[3 + 0*4] = 0.0;
+	m_modelview[3 + 1*4] = 0.0;
+	m_modelview[3 + 2*4] = 0.0;
+	m_modelview[3 + 3*4] = 1.0;
 	if (scale != 0.0) {
 		m_modelview[12] *= scale;
 		m_modelview[13] *= scale;
@@ -757,7 +827,7 @@ void arglDispImage(ARUint8 *image, const ARParam *cparam, const double zoom, ARG
 
 	// Prepare an orthographic projection, set camera position for 2D drawing, and save GL state.
 	glGetTexEnviv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, &texEnvModeSave); // Save GL texture environment mode.
-	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	if (texEnvModeSave != GL_REPLACE) glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 	lightingSave = glIsEnabled(GL_LIGHTING);			// Save enabled state of lighting.
 	if (lightingSave == GL_TRUE) glDisable(GL_LIGHTING);
 	depthTestSave = glIsEnabled(GL_DEPTH_TEST);		// Save enabled state of depth test.
@@ -770,7 +840,20 @@ void arglDispImage(ARUint8 *image, const ARParam *cparam, const double zoom, ARG
 	glPushMatrix();
 	glLoadIdentity();		
 	
-	arglDispImageStateful(image, cparam, zoom, contextSettings);
+	if (arDebug) { // Globals from ar.h: arDebug, arImage, arImageProcMode.
+		if (arImage) {
+			if (arImageProcMode == AR_IMAGE_PROC_IN_HALF) {
+				ARParam cparamScaled = *cparam;
+				cparamScaled.xsize /= 2;
+				cparamScaled.ysize /= 2;
+				arglDispImageStateful(arImage, &cparamScaled, zoom * 2.0, contextSettings);
+			} else {
+				arglDispImageStateful(arImage, cparam, zoom, contextSettings);
+			}
+		}
+	} else {
+		arglDispImageStateful(image, cparam, zoom, contextSettings);
+	}
 
 	// Restore previous projection, camera position, and GL state.
 	glMatrixMode(GL_PROJECTION);
@@ -779,7 +862,7 @@ void arglDispImage(ARUint8 *image, const ARParam *cparam, const double zoom, ARG
 	glPopMatrix();
 	if (depthTestSave == GL_TRUE) glEnable(GL_DEPTH_TEST);			// Restore enabled state of depth test.
 	if (lightingSave == GL_TRUE) glEnable(GL_LIGHTING);			// Restore enabled state of lighting.
-	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, texEnvModeSave); // Restore GL texture environment mode.
+	if (texEnvModeSave != GL_REPLACE) glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, texEnvModeSave); // Restore GL texture environment mode.
 	
 #ifdef ARGL_DEBUG
 	// Report any errors we generated.
@@ -794,14 +877,16 @@ void arglDispImage(ARUint8 *image, const ARParam *cparam, const double zoom, ARG
 void arglDispImageStateful(ARUint8 *image, const ARParam *cparam, const double zoom, ARGL_CONTEXT_SETTINGS_REF contextSettings)
 {
 	float zoomf;
-	int texmapScaleFactor;
+	int texmapScaleFactor, params[4];
 	
 	zoomf = (float)zoom;
-	texmapScaleFactor = arglTexmapMode + 1;
-	if (arglDrawMode == AR_DRAW_BY_GL_DRAW_PIXELS) {
+	texmapScaleFactor = contextSettings->arglTexmapMode + 1;
+	if (contextSettings->arglDrawMode == AR_DRAW_BY_GL_DRAW_PIXELS) {
 		glDisable(GL_TEXTURE_2D);
-		glPixelZoom(zoomf, -zoomf);
-		glRasterPos2f(0.0f, cparam->ysize * zoomf);
+		glGetIntegerv(GL_VIEWPORT, (GLint *)params);
+		glPixelZoom(zoomf * ((float)(params[2]) / (float)(cparam->xsize)),
+				   -zoomf * ((float)(params[3]) / (float)(cparam->ysize)));
+		glRasterPos2f(0.0f, (float)(cparam->ysize));
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		glDrawPixels(cparam->xsize, cparam->ysize, contextSettings->pixFormat, contextSettings->pixType, image);
 	} else {
@@ -814,7 +899,7 @@ void arglDispImageStateful(ARUint8 *image, const ARParam *cparam, const double z
 			contextSettings->initPlease = TRUE;
 		}
 		
-		if (arglTexRectangle) {
+		if (contextSettings->arglTexRectangle) {
 			arglDispImageTexRectangle(image, cparam, zoomf, contextSettings, texmapScaleFactor);
 		} else {
 			arglDispImageTexPow2(image, cparam, zoomf, contextSettings, texmapScaleFactor);
@@ -837,56 +922,115 @@ int arglDistortionCompensationGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, int
 	return (TRUE);
 }
 
-int arglPixelFormatSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, ARGL_PIX_FORMAT format)
+int arglPixelFormatSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, AR_PIXEL_FORMAT format)
 {
 	if (!contextSettings) return (FALSE);
 	switch (format) {
-		case ARGL_PIX_FORMAT_RGBA:
+		case AR_PIXEL_FORMAT_RGBA:
 			contextSettings->pixIntFormat = GL_RGBA;
 			contextSettings->pixFormat = GL_RGBA;
 			contextSettings->pixType = GL_UNSIGNED_BYTE;
 			contextSettings->pixSize = 4;
 			break;
-		case ARGL_PIX_FORMAT_ABGR:	// SGI.
-			contextSettings->pixIntFormat = GL_RGBA;
-			contextSettings->pixFormat = GL_ABGR_EXT;
-			contextSettings->pixType = GL_UNSIGNED_BYTE;
-			contextSettings->pixSize = 4;
+		case AR_PIXEL_FORMAT_ABGR:	// SGI.
+			if (arglGLCapabilityCheck(0, (unsigned char *)"GL_EXT_abgr")) {
+				contextSettings->pixIntFormat = GL_RGBA;
+				contextSettings->pixFormat = GL_ABGR_EXT;
+				contextSettings->pixType = GL_UNSIGNED_BYTE;
+				contextSettings->pixSize = 4;
+			} else {
+				return (FALSE);
+			}
 			break;
-		case ARGL_PIX_FORMAT_BGRA:	// Windows.
-			contextSettings->pixIntFormat = GL_RGBA;
-			contextSettings->pixFormat = GL_BGRA;
-			contextSettings->pixType = GL_UNSIGNED_BYTE;
-			contextSettings->pixSize = 4;
+		case AR_PIXEL_FORMAT_BGRA:	// Windows.
+			if (arglGLCapabilityCheck(0x0120, (unsigned char *)"GL_EXT_bgra")) {
+				contextSettings->pixIntFormat = GL_RGBA;
+				contextSettings->pixFormat = GL_BGRA;
+				contextSettings->pixType = GL_UNSIGNED_BYTE;
+				contextSettings->pixSize = 4;
+			} else {
+				return (FALSE);
+			}
 			break;
-		case ARGL_PIX_FORMAT_ARGB:	// Mac.
-			contextSettings->pixIntFormat = GL_RGBA;
-			contextSettings->pixFormat = GL_BGRA;
-			contextSettings->pixType = GL_UNSIGNED_INT_8_8_8_8_REV;
-			contextSettings->pixSize = 4;
+		case AR_PIXEL_FORMAT_ARGB:	// Mac.
+			if (arglGLCapabilityCheck(0x0120, (unsigned char *)"GL_EXT_bgra")
+				&& arglGLCapabilityCheck(0x0120, (unsigned char *)"GL_APPLE_packed_pixels")) {
+				contextSettings->pixIntFormat = GL_RGBA;
+				contextSettings->pixFormat = GL_BGRA;
+#ifdef AR_BIG_ENDIAN
+				contextSettings->pixType = GL_UNSIGNED_INT_8_8_8_8_REV;
+#else
+				contextSettings->pixType = GL_UNSIGNED_INT_8_8_8_8;
+#endif
+				contextSettings->pixSize = 4;
+			} else {
+				return (FALSE);
+			}
 			break;
-		case ARGL_PIX_FORMAT_RGB:
+		case AR_PIXEL_FORMAT_RGB:
 			contextSettings->pixIntFormat = GL_RGB;
 			contextSettings->pixFormat = GL_RGB;
 			contextSettings->pixType = GL_UNSIGNED_BYTE;
 			contextSettings->pixSize = 3;
 			break;
-		case ARGL_PIX_FORMAT_BGR:
-			contextSettings->pixIntFormat = GL_RGB;
-			contextSettings->pixFormat = GL_BGR;
-			contextSettings->pixType = GL_UNSIGNED_BYTE;
-			contextSettings->pixSize = 3;
+		case AR_PIXEL_FORMAT_BGR:
+			if (arglGLCapabilityCheck(0x0120, (unsigned char *)"GL_EXT_bgra")) {
+				contextSettings->pixIntFormat = GL_RGB;
+				contextSettings->pixFormat = GL_BGR;
+				contextSettings->pixType = GL_UNSIGNED_BYTE;
+				contextSettings->pixSize = 3;
+			} else {
+				return (FALSE);
+			}
 			break;
-		case ARGL_PIX_FORMAT_2vuy:
-			contextSettings->pixIntFormat = GL_RGB;
-			contextSettings->pixFormat = GL_YCBCR_422_APPLE;
-			contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_REV_APPLE;
+		case AR_PIXEL_FORMAT_MONO:
+			contextSettings->pixIntFormat = GL_LUMINANCE;
+			contextSettings->pixFormat = GL_LUMINANCE;
+			contextSettings->pixType = GL_UNSIGNED_BYTE;
+			contextSettings->pixSize = 1;
+			break;
+		case AR_PIXEL_FORMAT_2vuy:
+			if (arglGLCapabilityCheck(0, (unsigned char *)"GL_APPLE_ycbcr_422")) {
+				contextSettings->pixIntFormat = GL_RGB;
+				contextSettings->pixFormat = GL_YCBCR_422_APPLE;
+#ifdef AR_BIG_ENDIAN
+				contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_REV_APPLE;
+#else
+				contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_APPLE;
+#endif
+			} else if (arglGLCapabilityCheck(0, (unsigned char *)"GL_MESA_ycbcr_texture")) {
+				contextSettings->pixIntFormat = GL_YCBCR_MESA;
+				contextSettings->pixFormat = GL_YCBCR_MESA;
+#ifdef AR_BIG_ENDIAN
+				contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_REV_MESA;
+#else
+				contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_MESA;
+#endif
+			} else {
+				return (FALSE);
+			}
 			contextSettings->pixSize = 2;
 			break;
-		case ARGL_PIX_FORMAT_yuvs:
-			contextSettings->pixIntFormat = GL_RGB;
-			contextSettings->pixFormat = GL_YCBCR_422_APPLE;
-			contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_APPLE;
+		case AR_PIXEL_FORMAT_yuvs:
+			if (arglGLCapabilityCheck(0, (unsigned char *)"GL_APPLE_ycbcr_422")) {
+				contextSettings->pixIntFormat = GL_RGB;
+				contextSettings->pixFormat = GL_YCBCR_422_APPLE;
+#ifdef AR_BIG_ENDIAN
+				contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_APPLE;
+#else
+				contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_REV_APPLE;
+#endif
+			} else if (arglGLCapabilityCheck(0, (unsigned char *)"GL_MESA_ycbcr_texture")) {
+				contextSettings->pixIntFormat = GL_YCBCR_MESA;
+				contextSettings->pixFormat = GL_YCBCR_MESA;
+#ifdef AR_BIG_ENDIAN
+				contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_MESA;
+#else
+				contextSettings->pixType = GL_UNSIGNED_SHORT_8_8_REV_MESA;
+#endif
+			} else {
+				return (FALSE);
+			}
 			contextSettings->pixSize = 2;
 			break;
 		default:
@@ -897,35 +1041,51 @@ int arglPixelFormatSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, ARGL_PIX_FORMA
 	return (TRUE);
 }
 
-int arglPixelFormatGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, ARGL_PIX_FORMAT *format, int *size)
+int arglPixelFormatGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, AR_PIXEL_FORMAT *format, int *size)
 {
 	if (!contextSettings) return (FALSE);
 	switch (contextSettings->pixFormat) {
 		case GL_RGBA:
-			*format = ARGL_PIX_FORMAT_RGBA;
+			*format = AR_PIXEL_FORMAT_RGBA;
 			*size = 4;
 			break;
 		case GL_ABGR_EXT:
-			*format = ARGL_PIX_FORMAT_ABGR;
+			*format = AR_PIXEL_FORMAT_ABGR;
 			*size = 4;
 			break;
 		case GL_BGRA:
-			if (contextSettings->pixType == GL_UNSIGNED_BYTE) *format = ARGL_PIX_FORMAT_BGRA;
-			else *format = ARGL_PIX_FORMAT_ARGB;
+			if (contextSettings->pixType == GL_UNSIGNED_BYTE) *format = AR_PIXEL_FORMAT_BGRA;
+#ifdef AR_BIG_ENDIAN
+			else if (contextSettings->pixType == GL_UNSIGNED_INT_8_8_8_8_REV) *format = AR_PIXEL_FORMAT_ARGB;
+#else
+			else if (contextSettings->pixType == GL_UNSIGNED_INT_8_8_8_8) *format = AR_PIXEL_FORMAT_ARGB;
+#endif
+			else  return (FALSE);
 			*size = 4;
 			break;
 		case GL_RGB:
-			*format = ARGL_PIX_FORMAT_RGB;
+			*format = AR_PIXEL_FORMAT_RGB;
 			*size = 3;
 			break;
 		case GL_BGR:
-			*format = ARGL_PIX_FORMAT_BGR;
+			*format = AR_PIXEL_FORMAT_BGR;
 			*size = 3;
 			break;
 		case GL_YCBCR_422_APPLE:
-			if (contextSettings->pixType == GL_UNSIGNED_SHORT_8_8_REV_APPLE) *format = ARGL_PIX_FORMAT_2vuy;
-			else *format = ARGL_PIX_FORMAT_yuvs;
+		case GL_YCBCR_MESA:
+#ifdef AR_BIG_ENDIAN
+			if (contextSettings->pixType == GL_UNSIGNED_SHORT_8_8_REV_APPLE) *format = AR_PIXEL_FORMAT_2vuy; // N.B.: GL_UNSIGNED_SHORT_8_8_REV_APPLE = GL_UNSIGNED_SHORT_8_8_REV_MESA
+			else if (contextSettings->pixType == GL_UNSIGNED_SHORT_8_8_APPLE) *format = AR_PIXEL_FORMAT_yuvs; // GL_UNSIGNED_SHORT_8_8_APPLE = GL_UNSIGNED_SHORT_8_8_MESA
+#else
+			if (contextSettings->pixType == GL_UNSIGNED_SHORT_8_8_APPLE) *format = AR_PIXEL_FORMAT_2vuy;
+			else if (contextSettings->pixType == GL_UNSIGNED_SHORT_8_8_REV_APPLE) *format = AR_PIXEL_FORMAT_yuvs;
+#endif
+			else return (FALSE);
 			*size = 2;
+			break;
+		case GL_LUMINANCE:
+			*format = AR_PIXEL_FORMAT_MONO;
+			*size = 1;
 			break;
 		default:
 			return (FALSE);
@@ -933,3 +1093,40 @@ int arglPixelFormatGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, ARGL_PIX_FORMA
 	}
 	return (TRUE);
 }
+
+void arglDrawModeSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int mode)
+{
+	if (!contextSettings || mode < 0 || mode > 1) return; // Sanity check.
+	contextSettings->arglDrawMode = mode;
+}
+
+int arglDrawModeGet(ARGL_CONTEXT_SETTINGS_REF contextSettings)
+{
+	if (!contextSettings) return (-1); // Sanity check.
+	return (contextSettings->arglDrawMode);
+}
+
+void arglTexmapModeSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int mode)
+{
+	if (!contextSettings || mode < 0 || mode > 1) return; // Sanity check.
+	contextSettings->arglTexmapMode = mode;
+}
+
+int arglTexmapModeGet(ARGL_CONTEXT_SETTINGS_REF contextSettings)
+{
+	if (!contextSettings) return (-1); // Sanity check.
+	return (contextSettings->arglTexmapMode);
+}
+
+void arglTexRectangleSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int state)
+{
+	if (!contextSettings) return; // Sanity check.
+	contextSettings->arglTexRectangle = state;
+}
+
+int arglTexRectangleGet(ARGL_CONTEXT_SETTINGS_REF contextSettings)
+{
+	if (!contextSettings) return (-1); // Sanity check.
+	return (contextSettings->arglTexRectangle);
+}
+
