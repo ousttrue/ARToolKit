@@ -43,7 +43,7 @@ end
 
 configuration {}
 
-dofile "examples/simpleLite/premake4.lua"
+include "examples"
 include "ar"
 
 include "dsvlsample"
