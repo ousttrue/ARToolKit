@@ -419,16 +419,16 @@ static void Display(void)
 int main(int argc, char** argv)
 {
 	char glutGamemode[32];
-	const char *cparam_name = "Data/camera_para.dat";
+	const char *cparam_name = "../../Data/camera_para.dat";
 	//
 	// Camera configuration.
 	//
 #ifdef _WIN32
-	char			*vconf = "Data\\WDM_camera_flipV.xml";
+	char			*vconf = "../../Data/WDM_camera_flipV.xml";
 #else
 	char			*vconf = "";
 #endif
-	const char *patt_name  = "Data/patt.hiro";
+	const char *patt_name  = "../../Data/patt.hiro";
 	
 	// ----------------------------------------------------------------------------
 	// Library inits.
