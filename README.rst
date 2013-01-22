@@ -10,8 +10,9 @@ ARToolKitとDSVLに基づいてGPL。
 
 history
 =======
-* 20130118 新規。DSVLのiterの修正。DSVL, ARToolKitのdllを作らないようにした。
+* 20130122 ARToolKitとDSVLでひとつのdllを生成するように変更した。
 * 20130119 ARToolKitを2.7.1.2から2.7.2.1に差し替え。
+* 20130118 新規。DSVLのiterの修正。DSVL, ARToolKitのdllを作らないようにした。
 
 require
 =======
@@ -30,7 +31,6 @@ Include/qedit.hが必要。
 Windows DDK
 -----------
 DSVLがatlを使っている。
-* http://www.microsoft.com/en-us/download/details.aspx?displaylang=en&amp;id=11800
 
 premake4
 --------
