@@ -35,7 +35,7 @@ static int verify_markers(ARMarkerInfo *marker_info, int marker_num,
                           ARMultiMarkerInfoT *config);
 
 
-double arMultiGetTransMat(ARMarkerInfo *marker_info, int marker_num,
+AR_DLL_API double arMultiGetTransMat(ARMarkerInfo *marker_info, int marker_num,
                           ARMultiMarkerInfoT *config)
 {
     double                *pos2d, *pos3d;

@@ -45,7 +45,7 @@ static std::string getdir(const std::string &path)
 }
 
 
-ARMultiMarkerInfoT *arMultiReadConfigFile( const char *filename )
+AR_DLL_API ARMultiMarkerInfoT *arMultiReadConfigFile( const char *filename )
 {
     FILE *fp=fopen(filename,"r");
     if(fp == NULL){

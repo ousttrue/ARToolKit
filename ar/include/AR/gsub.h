@@ -58,7 +58,7 @@ extern "C" {
 * by default: DEFAULT_DRAW_MODE in config.h
 * \rem choice and performance depends on your hardware and your openGL driver.
 */
-extern int  argDrawMode;
+AR_DLL_API extern int  argDrawMode;
 
 /** \var int argTexmapMode
 * \brief define the texture map configuration mode.
@@ -70,7 +70,7 @@ extern int  argDrawMode;
 * - AR_DRAW_TEXTURE_HALF_IMAGE: texture mapping half resolution.
 * by default: DEFAULT_DRAW_TEXTURE_IMAGE in config.h
 */
-extern int  argTexmapMode;
+AR_DLL_API extern int  argTexmapMode;
 
 // ============================================================================
 //	Public functions.

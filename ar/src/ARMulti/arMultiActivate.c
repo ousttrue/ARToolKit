@@ -15,7 +15,7 @@
 #include <AR/matrix.h>
 #include <AR/arMulti.h>
 
-int arMultiActivate(ARMultiMarkerInfoT *config)
+AR_DLL_API int arMultiActivate(ARMultiMarkerInfoT *config)
 {
     int    i;
 
@@ -28,7 +28,7 @@ int arMultiActivate(ARMultiMarkerInfoT *config)
     return 0;
 }
 
-int arMultiDeactivate(ARMultiMarkerInfoT *config)
+AR_DLL_API int arMultiDeactivate(ARMultiMarkerInfoT *config)
 {
     int    i;
 
@@ -41,7 +41,7 @@ int arMultiDeactivate(ARMultiMarkerInfoT *config)
     return 0;
 }
 
-int arMultiFreeConfig(ARMultiMarkerInfoT *config)
+AR_DLL_API int arMultiFreeConfig(ARMultiMarkerInfoT *config)
 {
     int    i;
 

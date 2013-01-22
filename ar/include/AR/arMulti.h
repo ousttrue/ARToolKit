@@ -108,7 +108,7 @@ typedef struct {
 * \param filename name of the pattern file
 * \return a pattern structure, NULL if error
 */
-ARMultiMarkerInfoT *arMultiReadConfigFile( const char *filename );
+AR_DLL_API ARMultiMarkerInfoT *arMultiReadConfigFile( const char *filename );
 
 /**
 * \brief compute camera position in function of the multi-marker patterns (based on detected markers)
@@ -121,7 +121,7 @@ ARMultiMarkerInfoT *arMultiReadConfigFile( const char *filename );
 * \param config 
 * \return 
 */
-double  arMultiGetTransMat(ARMarkerInfo *marker_info, int marker_num,
+AR_DLL_API double  arMultiGetTransMat(ARMarkerInfo *marker_info, int marker_num,
                            ARMultiMarkerInfoT *config);
 
 /**
@@ -132,7 +132,7 @@ double  arMultiGetTransMat(ARMarkerInfo *marker_info, int marker_num,
 * \param config pointer to the multi-marker
 * \return 0 if success, -1 if error
 */
-int arMultiActivate( ARMultiMarkerInfoT *config );
+AR_DLL_API int arMultiActivate( ARMultiMarkerInfoT *config );
 
 /**
 * \brief Desactivate a multi-marker pattern on the recognition procedure.
@@ -142,7 +142,7 @@ int arMultiActivate( ARMultiMarkerInfoT *config );
 * \param config pointer to the multi-marker
 * \return 0 if success, -1 if error
 */
-int arMultiDeactivate( ARMultiMarkerInfoT *config );
+AR_DLL_API int arMultiDeactivate( ARMultiMarkerInfoT *config );
 
 /**
 * \brief remove a multi-marker pattern from memory.
@@ -152,7 +152,7 @@ int arMultiDeactivate( ARMultiMarkerInfoT *config );
 * \param config pointer to the multi-marker
 * \return 0 if success, -1 if error
 */
-int arMultiFreeConfig( ARMultiMarkerInfoT *config );
+AR_DLL_API int arMultiFreeConfig( ARMultiMarkerInfoT *config );
 
 /*------------------------------------*/
 double arsMultiGetTransMat(ARMarkerInfo *marker_infoL, int marker_numL,
