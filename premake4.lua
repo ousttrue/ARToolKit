@@ -43,6 +43,7 @@ end
 
 configuration {}
 
+include "ar_util"
 include "ar_examples"
 include "ar"
 
