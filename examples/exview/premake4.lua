@@ -30,26 +30,5 @@ libdirs {
 }
 links {
     "AR",
-    "DSVL",
-    "tinyxml",
-    "strmbase",
-
-    "strmiids",
-    "winmm",
-    "Quartz",
 }
-
-configuration "Debug"
-do
-    links {
-        "comsuppwd",
-    }
-end
-
-configuration "Release"
-do
-    links {
-        "comsuppw",
-    }
-end
 

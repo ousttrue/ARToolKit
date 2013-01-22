@@ -658,7 +658,6 @@ HRESULT DSVL_GraphManager::CheckoutMemoryBuffer(MemoryBufferHandle* pHandle,
 											REFERENCE_TIME* Timestamp)
 {
 	CAutoLock cObjectLock(&m_CSec);
-	HRESULT hr;
 	std::map<unsigned long, MemoryBufferEntry>::iterator iter;
 	iter = mb.find(sample_counter);
 

@@ -97,7 +97,7 @@ typedef struct {
 * \param mat XXXBK
 * \return  XXXBK
 */
-int  arParamGet( double global[][3], double screen[][2], int data_num,
+AR_DLL_API int  arParamGet( double global[][3], double screen[][2], int data_num,
                  double mat[3][4] );
 
 /** \fn int  arParamDecomp( ARParam *source, ARParam *icpara, double trans[3][4] )
@@ -109,7 +109,7 @@ int  arParamGet( double global[][3], double screen[][2], int data_num,
 * \param trans XXXBK
 * \return  XXXBK
 */
-int  arParamDecomp( ARParam *source, ARParam *icpara, double trans[3][4] );
+AR_DLL_API int  arParamDecomp( ARParam *source, ARParam *icpara, double trans[3][4] );
 
 /** \fn int arParamDecompMat( double source[3][4], double cpara[3][4], double trans[3][4] )
 * \brief  XXXBK
@@ -120,7 +120,7 @@ int  arParamDecomp( ARParam *source, ARParam *icpara, double trans[3][4] );
 * \param trans XXXBK
 * \return  XXXBK
 */
-int  arParamDecompMat( double source[3][4], double cpara[3][4], double trans[3][4] );
+AR_DLL_API int  arParamDecompMat( double source[3][4], double cpara[3][4], double trans[3][4] );
 
 /** \fn int int arParamIdeal2Observ( const double dist_factor[4], const double ix, const double iy,
 						 double *ox, double *oy )
@@ -136,7 +136,7 @@ int  arParamDecompMat( double source[3][4], double cpara[3][4], double trans[3][
 * \param oy resulted y in observed screen coordinates
 * \return 0 if success, -1 otherwise
 */
-int arParamIdeal2Observ( const double dist_factor[4], const double ix, const double iy,
+AR_DLL_API int arParamIdeal2Observ( const double dist_factor[4], const double ix, const double iy,
                          double *ox, double *oy );
 
 /** \fn int arParamObserv2Ideal( const double dist_factor[4], const double ox, const double oy,
@@ -153,7 +153,7 @@ int arParamIdeal2Observ( const double dist_factor[4], const double ix, const dou
 * \param iy resulted y in ideal screen coordinates
 * \return 0 if success, -1 otherwise
 */
-int arParamObserv2Ideal( const double dist_factor[4], const double ox, const double oy,
+AR_DLL_API int arParamObserv2Ideal( const double dist_factor[4], const double ox, const double oy,
                          double *ix, double *iy );
 
 /** \fn int arParamChangeSize( ARParam *source, int xsize, int ysize, ARParam *newparam )
@@ -166,7 +166,7 @@ int arParamObserv2Ideal( const double dist_factor[4], const double ox, const dou
 * \param newparam name of the destination parameters structure.
 * \return 0
 */
-int arParamChangeSize( ARParam *source, int xsize, int ysize, ARParam *newparam );
+AR_DLL_API int arParamChangeSize( ARParam *source, int xsize, int ysize, ARParam *newparam );
 
 /** \fn int arParamSave( char *filename, int num, ARParam *param, ...)
 * \brief save a camera intrinsic parameters.
@@ -177,7 +177,7 @@ int arParamChangeSize( ARParam *source, int xsize, int ysize, ARParam *newparam 
 * \param param parameters to save
 * \return 0 if success, -1 if Error (file not found, file structure problem)
 */
-int    arParamSave( char *filename, int num, ARParam *param, ...);
+AR_DLL_API int    arParamSave( char *filename, int num, ARParam *param, ...);
 
 /** \fn int arParamLoad( const char *filename, int num, ARParam *param, ...)
 * \brief load the camera intrinsic parameters.
@@ -189,7 +189,7 @@ int    arParamSave( char *filename, int num, ARParam *param, ...);
 * \param param result of the loaded parameters
 * \return 0 if success, -1 if Error (file not found, file structure problem)
 */
-int    arParamLoad( const char *filename, int num, ARParam *param, ...);
+AR_DLL_API int    arParamLoad( const char *filename, int num, ARParam *param, ...);
 
 /** \fn int arParamDisp( ARParam *param )
 * \brief display parameters.
@@ -198,7 +198,7 @@ int    arParamLoad( const char *filename, int num, ARParam *param, ...);
 * \param param structure to display
 * \return 0
 */
-int    arParamDisp( ARParam *param );
+AR_DLL_API int    arParamDisp( ARParam *param );
 
 /*-------------------*/
 

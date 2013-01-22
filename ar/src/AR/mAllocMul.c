@@ -18,7 +18,7 @@
 #endif
 #include <AR/matrix.h>
 
-ARMat *arMatrixAllocMul(ARMat *a, ARMat *b)
+AR_DLL_API ARMat *arMatrixAllocMul(ARMat *a, ARMat *b)
 {
 	ARMat *dest;
 

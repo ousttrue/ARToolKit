@@ -18,7 +18,7 @@
 #endif
 #include <AR/matrix.h>
 
-ARMat *arMatrixAllocUnit(int dim)
+AR_DLL_API ARMat *arMatrixAllocUnit(int dim)
 {
 	ARMat *m;
 

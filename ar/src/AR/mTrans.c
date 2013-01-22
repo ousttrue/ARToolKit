@@ -13,7 +13,7 @@
 #include <math.h>
 #include <AR/matrix.h>
 
-int arMatrixTrans(ARMat *dest, ARMat *source)
+AR_DLL_API int arMatrixTrans(ARMat *dest, ARMat *source)
 {
 	int r, c;
 

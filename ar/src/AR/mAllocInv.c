@@ -18,7 +18,7 @@
 #endif
 #include <AR/matrix.h>
 
-ARMat *arMatrixAllocInv(ARMat *source)
+AR_DLL_API ARMat *arMatrixAllocInv(ARMat *source)
 {
 	ARMat *dest;
 

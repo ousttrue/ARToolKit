@@ -13,7 +13,7 @@
 #include <math.h>
 #include <AR/matrix.h>
 
-int arMatrixDisp(ARMat *m)
+AR_DLL_API int arMatrixDisp(ARMat *m)
 {
 	int r, c;
 

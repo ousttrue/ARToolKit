@@ -19,7 +19,7 @@
 #endif
 #include <AR/matrix.h>
 
-ARMat *arMatrixAlloc(int row, int clm)
+AR_DLL_API ARMat *arMatrixAlloc(int row, int clm)
 {
 	ARMat *m;
 

@@ -13,7 +13,7 @@
 #include <math.h>
 #include <AR/matrix.h>
 
-int arMatrixDup(ARMat *dest, ARMat *source)
+AR_DLL_API int arMatrixDup(ARMat *dest, ARMat *source)
 {
 	int r,c;
 

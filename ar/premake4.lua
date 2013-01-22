@@ -4,8 +4,8 @@
 project "AR"
 --language "C"
 language "C++"
-kind "StaticLib"
---kind "SharedLib"
+--kind "StaticLib"
+kind "SharedLib"
 --kind "ConsoleApp"
 --kind "WindowedApp"
 
@@ -23,7 +23,7 @@ files {
 }
 defines {
     "_WIN32_WINNT=0x0500",
-    --"LIBARVIDEO_EXPORTS",
+    "LIBAR_EXPORTS",
 }
 includedirs {
     "include",
@@ -36,7 +36,25 @@ buildoptions {
 libdirs {
 }
 links {
+    "DSVL",
+    "tinyxml",
+    "strmbase",
+
+    "strmiids",
+    "winmm",
+    "Quartz",
 }
-prebuildcommands {
-}
+configuration "Debug"
+do
+    links {
+        "comsuppwd",
+    }
+end
+
+configuration "Release"
+do
+    links {
+        "comsuppw",
+    }
+end
 

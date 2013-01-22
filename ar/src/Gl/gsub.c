@@ -103,7 +103,7 @@ static void   argDispHalfImageTex( ARUint8 *image, int xwin, int ywin, int mode 
 static void   argDispImageDrawPixels( ARUint8 *image, int xwin, int ywin );
 static void   argDispHalfImageDrawPixels( ARUint8 *image, int xwin, int ywin );
 
-void argInqSetting( int *hmdMode,
+AR_DLL_API void argInqSetting( int *hmdMode,
                     int *gMiniXnum2, int *gMiniYnum2,
                     void (**mouseFunc)(int button, int state, int x, int y),
                     void (**keyFunc)(unsigned char key, int x, int y),
@@ -117,7 +117,7 @@ void argInqSetting( int *hmdMode,
     *mainFunc  = gMainFunc;
 }
 
-void argInit( ARParam *cparam, double zoom, int fullFlag, int xwin, int ywin, int hmd_flag )
+AR_DLL_API void argInit( ARParam *cparam, double zoom, int fullFlag, int xwin, int ywin, int hmd_flag )
 {
     int       i;
 
@@ -227,19 +227,19 @@ static void argInit2( int fullFlag )
     while( tex2Ysize < gImYsize/2 ) tex2Ysize *= 2;
 }
 
-void argCleanup( void )
+AR_DLL_API void argCleanup( void )
 {
 /*
     glutDestroyWindow( win );
 */
 }
 
-void argSwapBuffers( void )
+AR_DLL_API void argSwapBuffers( void )
 {
     glutSwapBuffers();
 }
 
-void argMainLoop( void (*mouseFunc)(int button, int state, int x, int y),
+AR_DLL_API void argMainLoop( void (*mouseFunc)(int button, int state, int x, int y),
                   void (*keyFunc)(unsigned char key, int x, int y),
                   void (*mainFunc)(void) )
 {
@@ -275,7 +275,7 @@ static void argInitLoop(void)
     glutIdleFunc( gMainFunc );
 }
 
-void argDrawMode2D( void )
+AR_DLL_API void argDrawMode2D( void )
 {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -287,27 +287,27 @@ void argDrawMode2D( void )
     argSetStencil( 0 );
 }
 
-void argDraw2dLeft( void )
+AR_DLL_API void argDraw2dLeft( void )
 {
     if( gl_hmd_flag == 0 && gl_stereo_flag == 0 ) return;
 
     argSetStencil( LEFTEYE );
 }
 
-void argDraw2dRight( void )
+AR_DLL_API void argDraw2dRight( void )
 {
     if( gl_hmd_flag == 0 && gl_stereo_flag == 0 ) return;
 
     argSetStencil( RIGHTEYE );
 }
 
-void argDrawMode3D( void )
+AR_DLL_API void argDrawMode3D( void )
 {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 }
 
-void argDraw3dLeft( void )
+AR_DLL_API void argDraw3dLeft( void )
 {
     if( gl_hmd_flag == 0 || gl_hmd_para_flag == 0 ) return;
 
@@ -317,7 +317,7 @@ void argDraw3dLeft( void )
     glLoadMatrixd( gl_lpara );
 }
 
-void argDraw3dRight( void )
+AR_DLL_API void argDraw3dRight( void )
 {
     if( gl_hmd_flag == 0 || gl_hmd_para_flag == 0 ) return;
 
@@ -328,7 +328,7 @@ void argDraw3dRight( void )
 }
 
 
-void argDraw3dCamera( int xwin, int ywin )
+AR_DLL_API void argDraw3dCamera( int xwin, int ywin )
 {
     if( xwin == 0 && ywin == 0 ) {
         glViewport(0, gWinYsize-(int)(gZoom*gImYsize),
@@ -346,7 +346,7 @@ void argDraw3dCamera( int xwin, int ywin )
 }
 
 
-void argConvGlpara( double para[3][4], double gl_para[16] )
+AR_DLL_API void argConvGlpara( double para[3][4], double gl_para[16] )
 {
     int     i, j;
 
@@ -360,7 +360,7 @@ void argConvGlpara( double para[3][4], double gl_para[16] )
 }
 
 
-void argDispImage( ARUint8 *image, int xwin, int ywin )
+AR_DLL_API void argDispImage( ARUint8 *image, int xwin, int ywin )
 {
     if( argDrawMode == AR_DRAW_BY_GL_DRAW_PIXELS ) {
         argDispImageDrawPixels( image, xwin, ywin );
@@ -1232,7 +1232,7 @@ static void argDispImageTex3( ARUint8 *wimage, int xwin, int ywin, int mode )
     glPixelStorei( GL_UNPACK_ROW_LENGTH, 0 );
 }
 
-void argDispHalfImage( ARUint8 *image, int xwin, int ywin )
+AR_DLL_API void argDispHalfImage( ARUint8 *image, int xwin, int ywin )
 {
     if( argDrawMode == AR_DRAW_BY_GL_DRAW_PIXELS ) {
         argDispHalfImageDrawPixels( image, xwin, ywin );
@@ -1518,7 +1518,7 @@ static void argDispHalfImageTex( ARUint8 *wimage, int xwin, int ywin, int mode )
     glPixelStorei( GL_UNPACK_ROW_LENGTH, 0 );
 }
 
-void argDrawSquare( double  vertex[4][2], int xwin, int ywin )
+AR_DLL_API void argDrawSquare( double  vertex[4][2], int xwin, int ywin )
 {
     argLineSeg( vertex[0][0], vertex[0][1],
                 vertex[1][0], vertex[1][1], xwin, ywin );
@@ -1530,7 +1530,7 @@ void argDrawSquare( double  vertex[4][2], int xwin, int ywin )
                 vertex[0][0], vertex[0][1], xwin, ywin );
 }
 
-void argLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin )
+AR_DLL_API void argLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin )
 {
     float   ox, oy;
     double  xx1, yy1, xx2, yy2;
@@ -1567,7 +1567,7 @@ void argLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin 
     glFlush();
 }
 
-void argLineSegHMD( double x1, double y1, double x2, double y2 )
+AR_DLL_API void argLineSegHMD( double x1, double y1, double x2, double y2 )
 {
     float   ox, oy;
 
@@ -1635,7 +1635,7 @@ static void argInitStencil(void)
     glDisable(GL_STENCIL_TEST);
 }
 
-void argLoadHMDparam( ARParam *lparam, ARParam *rparam )
+AR_DLL_API void argLoadHMDparam( ARParam *lparam, ARParam *rparam )
 {
     argConvGLcpara( lparam, AR_GL_CLIP_NEAR, AR_GL_CLIP_FAR, gl_lpara );
     argConvGLcpara( rparam, AR_GL_CLIP_NEAR, AR_GL_CLIP_FAR, gl_rpara );
@@ -1658,7 +1658,7 @@ static void argSetStencil( int flag )
     }
 }
 
-void argConvGLcpara( ARParam *param, double gnear, double gfar, double m[16] )
+AR_DLL_API void argConvGLcpara( ARParam *param, double gnear, double gfar, double m[16] )
 {
     argConvGLcpara2( param->mat, param->xsize, param->ysize, gnear, gfar, m );
 }

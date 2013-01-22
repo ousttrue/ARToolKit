@@ -13,7 +13,7 @@
 #include <math.h>
 #include <AR/matrix.h>
 
-int arMatrixInv(ARMat *dest, ARMat *source)
+AR_DLL_API int arMatrixInv(ARMat *dest, ARMat *source)
 {
 	if(arMatrixDup(dest, source) < 0) return -1;
 

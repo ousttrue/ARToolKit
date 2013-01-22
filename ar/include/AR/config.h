@@ -248,4 +248,22 @@
 #define   AR_PARAM_NMAX      1000
 #define   AR_PARAM_C34        100.0
 
+// ============================================================================
+//	Public types and defines.
+// ============================================================================
+
+#ifdef _WIN32
+#  ifdef LIBAR_EXPORTS
+#    define AR_DLL_API __declspec(dllexport)
+#  else
+#    ifdef _DLL
+#      define AR_DLL_API __declspec(dllimport)
+#    else
+#      define AR_DLL_API extern
+#    endif
+#  endif
+#else
+#  define AR_DLL_API
+#endif
+
 #endif

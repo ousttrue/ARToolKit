@@ -164,7 +164,7 @@ typedef struct {
 * \param x_coord x coordinate of the pixels of contours (size limited by AR_CHAIN_MAX).
 * \param y_coord y coordinate of the pixels of contours (size limited by AR_CHAIN_MAX).
 * \param vertex position of the vertices of the marker. (in observed screen coordinates)
-		 rem:the first vertex is stored again as the 5th entry in the array – for convenience of drawing a line-strip easier.
+		 rem:the first vertex is stored again as the 5th entry in the array ? for convenience of drawing a line-strip easier.
 * 
 */
 typedef struct {
@@ -189,7 +189,7 @@ typedef struct {
 * - 1: in debug mode
 * by default: 0 
 */
-extern int      arDebug;
+AR_DLL_API extern int      arDebug;
 
 /** \var ARUint8 *arImage
 * \brief internal image
@@ -197,7 +197,7 @@ extern int      arDebug;
 * internal image used. (access only for debugging ARToolKit)
 * by default: NULL
 */
-extern ARUint8  *arImage;
+AR_DLL_API extern ARUint8  *arImage;
 
 /** \var int arFittingMode
 * \brief fitting display mode use by ARToolkit.
@@ -209,7 +209,7 @@ extern ARUint8  *arImage;
 * - AR_FITTING_TO_IDEAL: compensated image
 * by default: DEFAULT_FITTING_MODE in config.h
 */
-extern int      arFittingMode;
+AR_DLL_API extern int      arFittingMode;
 
 /** \var int arImageProcMode
 * \brief define the image size mode for marker detection.
@@ -221,14 +221,14 @@ extern int      arFittingMode;
 * - AR_IMAGE_PROC_IN_HALF: half image uses.
 * by default: DEFAULT_IMAGE_PROC_MODE in config.h
 */
-extern int      arImageProcMode;
+AR_DLL_API extern int      arImageProcMode;
 
 /** \var ARParam arParam
 * \brief internal intrinsic camera parameter
 *
 * internal variable for camera intrinsic parameters
 */
-extern ARParam  arParam;
+AR_DLL_API extern ARParam  arParam;
 
 /** \var int arImXsize
 * \brief internal image size in width.
@@ -240,7 +240,7 @@ extern ARParam  arParam;
 *
 * internal image size in heigth (generally initialize in arInitCparam)
 */
-extern int      arImXsize, arImYsize;
+AR_DLL_API extern int      arImXsize, arImYsize;
 
 /** \var int arTemplateMatchingMode
 * \brief XXXBK
@@ -251,7 +251,7 @@ extern int      arImXsize, arImYsize;
 * AR_TEMPLATE_MATCHING_BW: BW Template
 * by default: DEFAULT_TEMPLATE_MATCHING_MODE in config.h
 */
-extern int      arTemplateMatchingMode;
+AR_DLL_API extern int      arTemplateMatchingMode;
 
 /** \var int arMatchingPCAMode
 * \brief XXXBK
@@ -262,7 +262,7 @@ extern int      arTemplateMatchingMode;
 * -AR_MATCHING_WITH_PCA: with PCA
 * by default: DEFAULT_MATCHING_PCA_MODE in config.h
 */
-extern int      arMatchingPCAMode;
+AR_DLL_API extern int      arMatchingPCAMode;
 
 // ============================================================================
 //	Public functions.
@@ -313,7 +313,7 @@ extern int      arMatchingPCAMode;
  *  byte (bits 15-8), and the build version number in the least-significant
  *	byte (bits 7-0).
  */
-ARUint32 arGetVersion(char **versionStringRef);
+AR_DLL_API ARUint32 arGetVersion(char **versionStringRef);
 
 /**
 * \brief initialize camera parameters.
@@ -326,7 +326,7 @@ ARUint32 arGetVersion(char **versionStringRef);
 * \param param the camera parameter structure
 * \return always 0
 */
-int arInitCparam( ARParam *param );
+AR_DLL_API int arInitCparam( ARParam *param );
 
 /**
 * \brief load markers description from a file
@@ -334,9 +334,9 @@ int arInitCparam( ARParam *param );
 * load the bitmap pattern specified in the file filename into the pattern
 * matching array for later use by the marker detection routines.
 * \param filename name of the file containing the pattern bitmap to be loaded
-* \return the identity number of the pattern loaded or –1 if the pattern load failed.
+* \return the identity number of the pattern loaded or ?1 if the pattern load failed.
 */
-int arLoadPatt( const char *filename );
+AR_DLL_API int arLoadPatt( const char *filename );
 
 /*
    Detection
@@ -359,7 +359,7 @@ int arLoadPatt( const char *filename );
 * \param marker_num the number of detected markers in the image.
 * \return 0 when the function completes normally, -1 otherwise
 */
-int arDetectMarker( ARUint8 *dataPtr, int thresh,
+AR_DLL_API int arDetectMarker( ARUint8 *dataPtr, int thresh,
                     ARMarkerInfo **marker_info, int *marker_num );
 
 /**
@@ -379,7 +379,7 @@ int arDetectMarker( ARUint8 *dataPtr, int thresh,
 * \param marker_num the number of detected markers in the image.
 * \return 0 when the function completes normally, -1 otherwise
 */
-int arDetectMarkerLite( ARUint8 *dataPtr, int thresh,
+AR_DLL_API int arDetectMarkerLite( ARUint8 *dataPtr, int thresh,
                         ARMarkerInfo **marker_info, int *marker_num );
 
 /**
@@ -399,7 +399,7 @@ int arDetectMarkerLite( ARUint8 *dataPtr, int thresh,
 *             that is the relative position of real camera to the real marker
 * \return always 0. 
 */
-double arGetTransMat( ARMarkerInfo *marker_info,
+AR_DLL_API double arGetTransMat( ARMarkerInfo *marker_info,
                       double center[2], double width, double conv[3][4] );
 
 /**
@@ -422,17 +422,17 @@ double arGetTransMat( ARMarkerInfo *marker_info,
 *             that is the relative position of real camera to the real marker
 * \return always 0. 
 */
-double arGetTransMatCont( ARMarkerInfo *marker_info, double prev_conv[3][4],
+AR_DLL_API double arGetTransMatCont( ARMarkerInfo *marker_info, double prev_conv[3][4],
                           double center[2], double width, double conv[3][4] );
 
-double arGetTransMat2( double rot[3][3], double pos2d[][2],
+AR_DLL_API double arGetTransMat2( double rot[3][3], double pos2d[][2],
                        double pos3d[][2], int num, double conv[3][4] );
-double arGetTransMat3( double rot[3][3], double ppos2d[][2],
+AR_DLL_API double arGetTransMat3( double rot[3][3], double ppos2d[][2],
                      double ppos3d[][2], int num, double conv[3][4],
                      double *dist_factor, double cpara[3][4] );
-double arGetTransMat4( double rot[3][3], double ppos2d[][2],
+AR_DLL_API double arGetTransMat4( double rot[3][3], double ppos2d[][2],
                        double ppos3d[][3], int num, double conv[3][4] );
-double arGetTransMat5( double rot[3][3], double ppos2d[][2],
+AR_DLL_API double arGetTransMat5( double rot[3][3], double ppos2d[][2],
                        double ppos3d[][3], int num, double conv[3][4],
                        double *dist_factor, double cpara[3][4] );
 
@@ -444,7 +444,7 @@ double arGetTransMat5( double rot[3][3], double ppos2d[][2],
 * \param patt_no number of pattern to free
 * \return return 1 in success, -1 if error
 */
-int arFreePatt( int patt_no );
+AR_DLL_API int arFreePatt( int patt_no );
 
 /**
 * \brief activate a pattern on the recognition procedure.
@@ -454,7 +454,7 @@ int arFreePatt( int patt_no );
 * \param patt_no number of pattern to activate
 * \return return 1 in success, -1 if error
 */
-int arActivatePatt( int pat_no );
+AR_DLL_API int arActivatePatt( int pat_no );
 
 /**
 * \brief desactivate a pattern on the recognition procedure.
@@ -464,7 +464,7 @@ int arActivatePatt( int pat_no );
 * \param patt_no number of pattern to desactivate
 * \return return 1 in success, -1 if error
 */
-int arDeactivatePatt( int pat_no );
+AR_DLL_API int arDeactivatePatt( int pat_no );
 
 /**
 * \brief save a marker.
@@ -476,7 +476,7 @@ int arDeactivatePatt( int pat_no );
 * \param filename The name of the file where the bitmap image is to be saved.
 * \return 0 if the bitmap image is successfully saved, -1 otherwise. 
 */
-int arSavePatt( ARUint8 *image,
+AR_DLL_API int arSavePatt( ARUint8 *image,
                 ARMarkerInfo *marker_info, char *filename );
 
 
@@ -494,7 +494,7 @@ int arSavePatt( ARUint8 *image,
 * \return 0 if the inversion success, -1 otherwise
 * \remark input matrix can be also output matrix
 */
-int    arUtilMatInv( double s[3][4], double d[3][4] );
+AR_DLL_API int    arUtilMatInv( double s[3][4], double d[3][4] );
 
 /**
 * \brief Multiplication of two matrix.
@@ -507,7 +507,7 @@ int    arUtilMatInv( double s[3][4], double d[3][4] );
 * \param d resulted multiplication matrix.
 * \return 0 if the multiplication success, -1 otherwise
 */
-int    arUtilMatMul( double s1[3][4], double s2[3][4], double d[3][4] );
+AR_DLL_API int    arUtilMatMul( double s1[3][4], double s2[3][4], double d[3][4] );
 
 /**
 * \brief extract a quaternion/position of matrix.
@@ -519,7 +519,7 @@ int    arUtilMatMul( double s1[3][4], double s2[3][4], double d[3][4] );
 * \param p a translation represented by a vector.
 * \return 0 if the extraction success, -1 otherwise (quaternion not normalize)
 */
-int    arUtilMat2QuatPos( double m[3][4], double q[4], double p[3] );
+AR_DLL_API int    arUtilMat2QuatPos( double m[3][4], double q[4], double p[3] );
 
 /**
 * \brief create a matrix with a quaternion/position.
@@ -530,7 +530,7 @@ int    arUtilMat2QuatPos( double m[3][4], double q[4], double p[3] );
 * \param m destination matrix
 * \return always 0
 */
-int    arUtilQuatPos2Mat( double q[4], double p[3], double m[3][4] );
+AR_DLL_API int    arUtilQuatPos2Mat( double q[4], double p[3], double m[3][4] );
 
 /**
 * \brief get the time with the ARToolkit timer.
@@ -538,7 +538,7 @@ int    arUtilQuatPos2Mat( double q[4], double p[3], double m[3][4] );
 * Give the time elapsed since the reset of the timer.
 * \return elapsed time (in milliseconds)
 */
-double arUtilTimer(void);
+AR_DLL_API double arUtilTimer(void);
 
 /**
 * \brief reset the internal timer of ARToolkit.
@@ -546,7 +546,7 @@ double arUtilTimer(void);
 * Reset the internal timer used by ARToolKit.
 * timer measurement (with arUtilTimer()).
 */
-void   arUtilTimerReset(void);
+AR_DLL_API void   arUtilTimerReset(void);
 
 /**
 * \brief sleep the actual thread.
@@ -554,7 +554,7 @@ void   arUtilTimerReset(void);
 * Sleep the actual thread.
 * \param msec time to sleep (in millisecond)
 */
-void   arUtilSleep( int msec );
+AR_DLL_API void   arUtilSleep( int msec );
 
 /*
   Internal processing
@@ -574,7 +574,7 @@ void   arUtilSleep( int msec );
 * \param label_ref On return, if label_num > 0, points to an array of ints, one for each detected component.
 * \return returns a pointer to the labeled output image, ready for passing onto the next stage of processing.
 */
-ARInt16 *arLabeling( ARUint8 *image, int thresh,
+AR_DLL_API ARInt16 *arLabeling( ARUint8 *image, int thresh,
                      int *label_num, int **area, double **pos, int **clip,
                      int **label_ref );
 
@@ -584,7 +584,7 @@ ARInt16 *arLabeling( ARUint8 *image, int thresh,
  * In debug mode, arLabeling may allocate and use static storage.
  * This function deallocates this storage.
  */
- void arLabelingCleanup(void);
+AR_DLL_API void arLabelingCleanup(void);
 
 
 /**
@@ -596,7 +596,7 @@ ARInt16 *arLabeling( ARUint8 *image, int thresh,
 * \param clip XXXBK
 * \param pos XXXBK
 */
-void arGetImgFeature( int *num, int **area, int **clip, double **pos );
+AR_DLL_API void arGetImgFeature( int *num, int **area, int **clip, double **pos );
 
 /**
 * \brief   XXXBK
@@ -614,7 +614,7 @@ void arGetImgFeature( int *num, int **area, int **clip, double **pos );
 * \param marker_num  XXXBK
 * \return XXXBK  XXXBK
 */
-ARMarkerInfo2 *arDetectMarker2( ARInt16 *limage,
+AR_DLL_API ARMarkerInfo2 *arDetectMarker2( ARInt16 *limage,
                                 int label_num, int *label_ref,
                                 int *warea, double *wpos, int *wclip,
                                 int area_max, int area_min, double factor, int *marker_num );
@@ -628,7 +628,7 @@ ARMarkerInfo2 *arDetectMarker2( ARInt16 *limage,
 * \param marker_num XXXBK
 * \return XXXBK
 */
-ARMarkerInfo *arGetMarkerInfo( ARUint8 *image,
+AR_DLL_API ARMarkerInfo *arGetMarkerInfo( ARUint8 *image,
                                ARMarkerInfo2 *marker_info2, int *marker_num );
 
 /**
@@ -644,7 +644,7 @@ ARMarkerInfo *arGetMarkerInfo( ARUint8 *image,
 * \param cf XXXBK
 * \return XXXBK
 */
-int arGetCode( ARUint8 *image, int *x_coord, int *y_coord, int *vertex,
+AR_DLL_API int arGetCode( ARUint8 *image, int *x_coord, int *y_coord, int *vertex,
                int *code, int *dir, double *cf );
 
 /**
@@ -659,7 +659,7 @@ int arGetCode( ARUint8 *image, int *x_coord, int *y_coord, int *vertex,
 * \param ext_pat detected pattern.
 * \return  XXXBK
 */
-int arGetPatt( ARUint8 *image, int *x_coord, int *y_coord, int *vertex,
+AR_DLL_API int arGetPatt( ARUint8 *image, int *x_coord, int *y_coord, int *vertex,
                ARUint8 ext_pat[AR_PATT_SIZE_Y][AR_PATT_SIZE_X][3] );
 
 /**
@@ -674,7 +674,7 @@ int arGetPatt( ARUint8 *image, int *x_coord, int *y_coord, int *vertex,
 * \param v XXXBK
 * \return  XXXBK
 */
-int arGetLine(int x_coord[], int y_coord[], int coord_num,
+AR_DLL_API int arGetLine(int x_coord[], int y_coord[], int coord_num,
               int vertex[], double line[4][3], double v[4][2]);
 
 /**
@@ -688,7 +688,7 @@ int arGetLine(int x_coord[], int y_coord[], int coord_num,
 * \param marker_info2 XXXBK
 * \return  XXXBK
 */
-int arGetContour( ARInt16 *limage, int *label_ref,
+AR_DLL_API int arGetContour( ARInt16 *limage, int *label_ref,
                   int label, int clip[4], ARMarkerInfo2 *marker_info2 );
 
 /**
@@ -703,7 +703,7 @@ int arGetContour( ARInt16 *limage, int *label_ref,
 * \param num XXXBK
 * \return XXXBK
 */
-double arModifyMatrix( double rot[3][3], double trans[3], double cpara[3][4],
+AR_DLL_API double arModifyMatrix( double rot[3][3], double trans[3], double cpara[3][4],
                              double vertex[][3], double pos2d[][2], int num );
 
 /**
@@ -716,7 +716,7 @@ double arModifyMatrix( double rot[3][3], double trans[3], double cpara[3][4],
 * \param wc XXXBK:which element ?
 * \return XXXBK
 */
-int arGetAngle( double rot[3][3], double *wa, double *wb, double *wc );
+AR_DLL_API int arGetAngle( double rot[3][3], double *wa, double *wb, double *wc );
 
 /**
 * \brief create a rotation matrix with euler angle.
@@ -728,7 +728,7 @@ int arGetAngle( double rot[3][3], double *wa, double *wb, double *wc );
 * \param rot the resulted rotation matrix
 * \return XXXBK
 */
-int arGetRot( double a, double b, double c, double rot[3][3] );
+AR_DLL_API int arGetRot( double a, double b, double c, double rot[3][3] );
 
 /**
 * \brief XXXBK
@@ -743,7 +743,7 @@ int arGetRot( double a, double b, double c, double rot[3][3] );
 * \param ret XXXBK
 * \return XXXBK
 */
-int arGetNewMatrix( double a, double b, double c,
+AR_DLL_API int arGetNewMatrix( double a, double b, double c,
                     double trans[3], double trans2[3][4],
                     double cpara[3][4], double ret[3][4] );
 
@@ -756,7 +756,7 @@ int arGetNewMatrix( double a, double b, double c,
 * \param rot XXXBK
 * \return XXXBK
 */
-int arGetInitRot( ARMarkerInfo *marker_info, double cpara[3][4], double rot[3][3] );
+AR_DLL_API int arGetInitRot( ARMarkerInfo *marker_info, double cpara[3][4], double rot[3][3] );
 
 /** \struct arPrevInfo
 * \brief structure for temporal continuity of tracking

@@ -18,7 +18,7 @@
 #endif  
 #include <AR/matrix.h>
 
-int arMatrixFree(ARMat *m)
+AR_DLL_API int arMatrixFree(ARMat *m)
 {
 	free(m->m);
 	free(m);

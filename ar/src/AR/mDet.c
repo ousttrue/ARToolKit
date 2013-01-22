@@ -17,7 +17,7 @@
 
 static double mdet( double *ap, int dimen, int rowa );
 
-double arMatrixDet(ARMat *m)
+AR_DLL_API double arMatrixDet(ARMat *m)
 {
 
 	if(m->row != m->clm) return 0.0;

@@ -37,7 +37,7 @@ ARUint8*   arImageR                = NULL;
 ARSParam   arsParam;
 double     arsMatR2L[3][4];
 
-ARUint32 arGetVersion(char **versionStringRef)
+AR_DLL_API ARUint32 arGetVersion(char **versionStringRef)
 {
 	const char version[] = AR_HEADER_VERSION_STRING;
 	char *s;
@@ -63,7 +63,7 @@ ARUint32 arGetVersion(char **versionStringRef)
 static int arGetLine2(int x_coord[], int y_coord[], int coord_num,
                       int vertex[], double line[4][3], double v[4][2], double *dist_factor);
 
-int arInitCparam( ARParam *param )
+AR_DLL_API int arInitCparam( ARParam *param )
 {
     arImXsize = param->xsize;
     arImYsize = param->ysize;
@@ -83,7 +83,7 @@ int arsInitCparam( ARSParam *sparam )
     return(0);
 }
 
-int arGetLine(int x_coord[], int y_coord[], int coord_num,
+AR_DLL_API int arGetLine(int x_coord[], int y_coord[], int coord_num,
               int vertex[], double line[4][3], double v[4][2])
 {
     return arGetLine2( x_coord, y_coord, coord_num, vertex, line, v, arParam.dist_factor );
@@ -148,7 +148,7 @@ static int arGetLine2(int x_coord[], int y_coord[], int coord_num,
     return(0);
 }
 
-int arUtilMatMul( double s1[3][4], double s2[3][4], double d[3][4] )
+AR_DLL_API int arUtilMatMul( double s1[3][4], double s2[3][4], double d[3][4] )
 {
     int     i, j;
 
@@ -164,7 +164,7 @@ int arUtilMatMul( double s1[3][4], double s2[3][4], double d[3][4] )
     return 0;
 }
 
-int arUtilMatInv( double s[3][4], double d[3][4] )
+AR_DLL_API int arUtilMatInv( double s[3][4], double d[3][4] )
 {
     ARMat       *mat;
     int         i, j;
@@ -188,7 +188,7 @@ int arUtilMatInv( double s[3][4], double d[3][4] )
     return 0;
 }
 
-int arUtilMat2QuatPos( double m[3][4], double q[4], double p[3] )
+AR_DLL_API int arUtilMat2QuatPos( double m[3][4], double q[4], double p[3] )
 {
     double   w;
 
@@ -208,7 +208,7 @@ int arUtilMat2QuatPos( double m[3][4], double q[4], double p[3] )
     return 0;
 }
 
-int arUtilQuatPos2Mat( double q[4], double p[3], double m[3][4] )
+AR_DLL_API int arUtilQuatPos2Mat( double q[4], double p[3], double m[3][4] )
 {
     double    x2, y2, z2;
     double    xx, xy, xz;
@@ -248,7 +248,7 @@ int arUtilQuatPos2Mat( double q[4], double p[3], double m[3][4] )
 
 static int      ss, sms;
 
-double arUtilTimer(void)
+AR_DLL_API double arUtilTimer(void)
 {
 #ifdef _WIN32
     struct _timeb sys_time;
@@ -277,7 +277,7 @@ double arUtilTimer(void)
     return( tt );
 }
 
-void arUtilTimerReset(void)
+AR_DLL_API void arUtilTimerReset(void)
 {
 #ifdef _WIN32
     struct _timeb sys_time;

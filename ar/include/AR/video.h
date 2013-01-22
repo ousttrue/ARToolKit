@@ -84,20 +84,6 @@ extern "C" {
 
 #ifdef _WIN32
 #  include <AR/sys/videoWin32DirectShow.h>
-/*
-#  ifdef LIBARVIDEO_EXPORTS
-#    define AR_DLL_API __declspec(dllexport)
-#  else
-#    ifdef _DLL
-#      define AR_DLL_API __declspec(dllimport)
-#    else
-#      define AR_DLL_API extern
-#    endif
-#  endif
-*/
-#  define AR_DLL_API
-#else
-#  define AR_DLL_API
 #endif
 
 #ifdef __linux

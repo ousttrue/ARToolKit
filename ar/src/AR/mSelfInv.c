@@ -15,7 +15,7 @@
 
 static double *minv( double *ap, int dimen, int rowa );
 
-int arMatrixSelfInv(ARMat *m)
+AR_DLL_API int arMatrixSelfInv(ARMat *m)
 {
 	if(minv(m->m, m->row, m->row) == NULL) return -1;
 

@@ -124,7 +124,7 @@ typedef struct {
 * \param clm number of column
 * \return the matrix structure, NULL if allocation is impossible
 */
-ARMat  *arMatrixAlloc(int row, int clm);
+AR_DLL_API ARMat  *arMatrixAlloc(int row, int clm);
 
 /** \fn int arMatrixFree(ARMat *m)
 * \brief deletes a matrix.
@@ -133,7 +133,7 @@ ARMat  *arMatrixAlloc(int row, int clm);
 * \param m matrix to delete
 * \return 0
 */
-int    arMatrixFree(ARMat *m);
+AR_DLL_API int    arMatrixFree(ARMat *m);
 
 /** \fn int arMatrixDup(ARMat *dest, ARMat *source)
 * \brief copy a matrix
@@ -144,7 +144,7 @@ int    arMatrixFree(ARMat *m);
 * \param source the original matrix source
 * \return 0 if success, -1 if error (matrix with different size)
 */
-int    arMatrixDup(ARMat *dest, ARMat *source);
+AR_DLL_API int    arMatrixDup(ARMat *dest, ARMat *source);
 
 /** \fn ARMat *arMatrixAllocDup(ARMat *source)
 * \brief dumps a new matrix
@@ -153,7 +153,7 @@ int    arMatrixDup(ARMat *dest, ARMat *source);
 * \param source the source matrix to copy
 * \return the matrix if success, NULL if error
 */
-ARMat  *arMatrixAllocDup(ARMat *source);
+AR_DLL_API ARMat  *arMatrixAllocDup(ARMat *source);
 
 /** \fn int arMatrixUnit(ARMat *unit)
 * \brief Creates a unit matrix.
@@ -164,7 +164,7 @@ ARMat  *arMatrixAllocDup(ARMat *source);
 * \param unit the matrix to transform
 * \return 0 if success, -1 if error
 */
-int    arMatrixUnit(ARMat *unit);
+AR_DLL_API int    arMatrixUnit(ARMat *unit);
 
 /** \fn int arMatrixAllocUnit(int dim)
 * \brief Creates a unit matrix.
@@ -174,7 +174,7 @@ int    arMatrixUnit(ARMat *unit);
 * \param dim dimensions of the unit matrix (square)
 * \return the matrix allocated if success, NULL if error
 */
-ARMat  *arMatrixAllocUnit(int dim);
+AR_DLL_API ARMat  *arMatrixAllocUnit(int dim);
 
 /** \fn int arMatrixMul(ARMat *dest, ARMat *a, ARMat *b)
 * \brief Multiply two matrix
@@ -188,7 +188,7 @@ ARMat  *arMatrixAllocUnit(int dim);
 * \param b second matrix
 * \return 0 if success, -1 if error (multiplication impossible, or destination matrix have not comptabile size)
 */
-int    arMatrixMul(ARMat *dest, ARMat *a, ARMat *b);
+AR_DLL_API int    arMatrixMul(ARMat *dest, ARMat *a, ARMat *b);
 
 /** \fn ARMat *arMatrixAllocMul(ARMat *a, ARMat *b)
 * \brief Multiply two matrix with memory allocation.
@@ -201,7 +201,7 @@ int    arMatrixMul(ARMat *dest, ARMat *a, ARMat *b);
 * \param b second matrix
 * \return the allocated matrix if success, NULL if error
 */
-ARMat  *arMatrixAllocMul(ARMat *a, ARMat *b);
+AR_DLL_API ARMat  *arMatrixAllocMul(ARMat *a, ARMat *b);
 
 /** \fn int  arMatrixTrans(ARMat *dest, ARMat *source)
 * \brief transposes a matrix.
@@ -212,7 +212,7 @@ ARMat  *arMatrixAllocMul(ARMat *a, ARMat *b);
 * \param source the source matrix
 * \return 0 if success, -1 if error (source and destination matrix have different size)
 */
-int    arMatrixTrans(ARMat *dest, ARMat *source);
+AR_DLL_API int    arMatrixTrans(ARMat *dest, ARMat *source);
 
 /** \fn ARMat *arMatrixAllocTrans(ARMat *source)
 * \brief transposes a matrix with allocation.
@@ -222,7 +222,7 @@ int    arMatrixTrans(ARMat *dest, ARMat *source);
 * \param source the matrix to transpose
 * \return the allocated matrix if success, NULL if error (creation or transposition impossible)
 */
-ARMat  *arMatrixAllocTrans(ARMat *source);
+AR_DLL_API ARMat  *arMatrixAllocTrans(ARMat *source);
 
 /** \fn int arMatrixInv(ARMat *dest, ARMat *source)
 * \brief inverse a matrix.
@@ -235,7 +235,7 @@ ARMat  *arMatrixAllocTrans(ARMat *source);
 * \param source source matrix
 * \return 0 if success, -1 if error (not square matrix)
 */
-int    arMatrixInv(ARMat *dest, ARMat *source);
+AR_DLL_API int    arMatrixInv(ARMat *dest, ARMat *source);
 
 /** \fn int arMatrixSelfInv(ARMat *m)
 * \brief inverses a matrix.
@@ -245,7 +245,7 @@ int    arMatrixInv(ARMat *dest, ARMat *source);
 * \param m the matrix to inverse
 * \return 0 if success, -1 if error
 */
-int    arMatrixSelfInv(ARMat *m);
+AR_DLL_API int    arMatrixSelfInv(ARMat *m);
 
 /** \fn int arMatrixAllocInv(ARMat *source)
 * \brief inverses a matrix.
@@ -255,7 +255,7 @@ int    arMatrixSelfInv(ARMat *m);
 * \param source the matrix to inverse
 * \return the inversed matrix if success, NULL if error
 */
-ARMat  *arMatrixAllocInv(ARMat *source);
+AR_DLL_API ARMat  *arMatrixAllocInv(ARMat *source);
 
 /** \fn int arMatrixDet(ARMat *m)
 * \brief compute determinant of a matrix.
@@ -264,7 +264,7 @@ ARMat  *arMatrixAllocInv(ARMat *source);
 * \param m matrix source
 * \return the computed determinant
 */
-double arMatrixDet(ARMat *m);
+AR_DLL_API double arMatrixDet(ARMat *m);
 
 /** \fn int arMatrixPCA( ARMat *input, ARMat *evec, ARVec *ev, ARVec *mean )
 * \brief compute the PCA of a matrix.
@@ -276,7 +276,7 @@ double arMatrixDet(ARMat *m);
 * \param mean mean computed
 * \return 0 if success to compute, -1 otherwise
 */
-int    arMatrixPCA( ARMat *input, ARMat *evec, ARVec *ev, ARVec *mean );
+AR_DLL_API int    arMatrixPCA( ARMat *input, ARMat *evec, ARVec *ev, ARVec *mean );
 
 /** \fn int arMatrixPCA2( ARMat *input, ARMat *evec, ARVec *ev )
 * \brief compute the PCA of a matrix.
@@ -287,7 +287,7 @@ int    arMatrixPCA( ARMat *input, ARMat *evec, ARVec *ev, ARVec *mean );
 * \param ev egein value computed
 * \return 0 if success to compute, -1 otherwise
 */
-int    arMatrixPCA2( ARMat *input, ARMat *evec, ARVec *ev );
+AR_DLL_API int    arMatrixPCA2( ARMat *input, ARMat *evec, ARVec *ev );
 
 /** \fn int arMatrixDisp(ARMat *m)
 * \brief display content of a matrix.
@@ -297,7 +297,7 @@ int    arMatrixPCA2( ARMat *input, ARMat *evec, ARVec *ev );
 * \param m
 * \return 0
 */
-int    arMatrixDisp(ARMat *m);
+AR_DLL_API int    arMatrixDisp(ARMat *m);
 
 /** \fn ARVec *arVecAlloc( int clm )
 * \brief creates a new vector.
@@ -306,7 +306,7 @@ int    arMatrixDisp(ARMat *m);
 * \param clm dimension of vector
 * \return the allocated vector, NULL if error (impossible allocation)
 */
-ARVec  *arVecAlloc( int clm );
+AR_DLL_API ARVec  *arVecAlloc( int clm );
 
 /** \fn int arVecFree( ARVec *v )
 * \brief delete a vector.
@@ -315,7 +315,7 @@ ARVec  *arVecAlloc( int clm );
 * \param v the vector to delete
 * \return 0
 */
-int    arVecFree( ARVec *v );
+AR_DLL_API int    arVecFree( ARVec *v );
 
 /** \fn int arVecDisp( ARVec *v )
 * \brief display a vector.
@@ -324,7 +324,7 @@ int    arVecFree( ARVec *v );
 * \param v the vector to display
 * \return 0
 */
-int    arVecDisp( ARVec *v );
+AR_DLL_API int    arVecDisp( ARVec *v );
 
 /** \fn double arVecHousehold( ARVec *x )
 * \brief XXXBK
@@ -333,7 +333,7 @@ int    arVecDisp( ARVec *v );
 * \param x XXXBK
 * \return XXXBK
 */
-double arVecHousehold( ARVec *x );
+AR_DLL_API double arVecHousehold( ARVec *x );
 
 /** \fn double arVecInnerproduct( ARVec *x, ARVec *y )
 * \brief Computes the inner product of 2 vectors.
@@ -344,7 +344,7 @@ double arVecHousehold( ARVec *x );
 * \param y second vector source 
 * \return the computed innerproduct
 */
-double arVecInnerproduct( ARVec *x, ARVec *y );
+AR_DLL_API double arVecInnerproduct( ARVec *x, ARVec *y );
 
 /** \fn int arVecTridiagonalize( ARMat *a, ARVec *d, ARVec *e )
 * \brief XXXBK
@@ -355,7 +355,7 @@ double arVecInnerproduct( ARVec *x, ARVec *y );
 * \param e XXXBK
 * \return XXXBK
 */
-int    arVecTridiagonalize( ARMat *a, ARVec *d, ARVec *e );
+AR_DLL_API int    arVecTridiagonalize( ARMat *a, ARVec *d, ARVec *e );
 
 
 #ifdef __cplusplus

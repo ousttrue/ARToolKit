@@ -19,7 +19,7 @@
 #endif
 #include <AR/matrix.h>
 
-ARMat *arMatrixAllocDup(ARMat *source)
+AR_DLL_API ARMat *arMatrixAllocDup(ARMat *source)
 {
 	ARMat *dest;
 

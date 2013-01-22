@@ -88,7 +88,7 @@ extern int  argTexmapMode;
 * \param ywin XXXBK. 0 if indifferent.
 * \param hmd_flag enable stereo display mode (only interleaved configuration)
 */
-void argInit( ARParam *cparam, double zoom, int fullFlag, int xwin, int ywin, int hmd_flag );
+AR_DLL_API void argInit( ARParam *cparam, double zoom, int fullFlag, int xwin, int ywin, int hmd_flag );
 
 /** \fn void argLoadHMDparam( ARParam *lparam, ARParam *rparam )
 * \brief initialize camera for HMD.
@@ -99,7 +99,7 @@ void argInit( ARParam *cparam, double zoom, int fullFlag, int xwin, int ywin, in
 * \param lparam parameter of left camera
 * \param rparam parameter of right camera
 */
-void argLoadHMDparam( ARParam *lparam, ARParam *rparam );
+AR_DLL_API void argLoadHMDparam( ARParam *lparam, ARParam *rparam );
 
 /** \fn void argCleanup( void )
 * \brief Close the gsub library.
@@ -109,7 +109,7 @@ void argLoadHMDparam( ARParam *lparam, ARParam *rparam );
 * \remark BE CAREFUL, THIS FUNCTION DOESN'T RESET PERSPECTIVE
 * MATRIX AND CURRENT GL STATE TO DEFAULT
 */
-void argCleanup( void );
+AR_DLL_API void argCleanup( void );
 
 /** \fn void argSwapBuffers( void )
 * \brief swap the rendering buffer.
@@ -118,7 +118,7 @@ void argCleanup( void );
 * pre-condition is that all the rendering functions have been
 * called.
 */
-void argSwapBuffers( void );
+AR_DLL_API void argSwapBuffers( void );
 
 /** \fn void argMainLoop( void (*mouseFunc)(int button, int state, int x, int y),
                   void (*keyFunc)(unsigned char key, int x, int y),
@@ -132,7 +132,7 @@ void argSwapBuffers( void );
 * \param keyFunc the user keyboard function can be NULL.
 * \param mainFunc the user main update function can be NULL.
 */
-void argMainLoop( void (*mouseFunc)(int button, int state, int x, int y),
+AR_DLL_API void argMainLoop( void (*mouseFunc)(int button, int state, int x, int y),
                   void (*keyFunc)(unsigned char key, int x, int y),
                   void (*mainFunc)(void) );
 
@@ -145,21 +145,21 @@ void argMainLoop( void (*mouseFunc)(int button, int state, int x, int y),
 * plane. It not define opengl state for rendering in image space (like
 * for a bitmap copy).
 */
-void argDrawMode2D( void );
+AR_DLL_API void argDrawMode2D( void );
 
 /** \fn void argDraw2dLeft( void )
 * \brief switch the rendering view to left eye  (in 2D space)
 *
 * Combine with argDrawMode2D for rendering the left view.
 */
-void argDraw2dLeft( void );
+AR_DLL_API void argDraw2dLeft( void );
 
 /** \fn void argDraw2dRight( void )
 * \brief switch the rendering view to right eye (in 2D space)
 *
 * Combine with argDrawMode2D for rendering the right view.
 */
-void argDraw2dRight( void );
+AR_DLL_API void argDraw2dRight( void );
 
 /** \fn void argDrawMode3D( void )
 * \brief switch the rendering context for 3D rendering mode.
@@ -167,7 +167,7 @@ void argDraw2dRight( void );
 * Update curent camera parameters for rendering in 3D space.
 * Generally call to reinializing model view matrix.
 */
-void argDrawMode3D( void );
+AR_DLL_API void argDrawMode3D( void );
 
 /** \fn void argDraw3dLeft( void )
 * \brief switch the rendering view to left eye (in 3D space)
@@ -176,7 +176,7 @@ void argDrawMode3D( void );
 * for left eye.
 * this function complements argDrawMode3D.
 */
-void argDraw3dLeft( void );
+AR_DLL_API void argDraw3dLeft( void );
 
 /** \fn void argDraw3dRight( void )
 * \brief switch the rendering view to right eye (in 3D space)
@@ -185,7 +185,7 @@ void argDraw3dLeft( void );
 * for left eye.
 * this function complements argDrawMode3D.
 */
-void argDraw3dRight( void );
+AR_DLL_API void argDraw3dRight( void );
 
 /** \fn void argDraw3dCamera( int xwin, int ywin )
 * \brief switch the rendering view for 3D rendering mode.
@@ -195,7 +195,7 @@ void argDraw3dRight( void );
 * \param xwin length of rendering view (less than window length)
 * \param ywin width of rendering view (less than window width)
 */
-void argDraw3dCamera( int xwin, int ywin );
+AR_DLL_API void argDraw3dCamera( int xwin, int ywin );
 
 
 /** \fn void argConvGlpara( double para[3][4], double gl_para[16] )
@@ -206,7 +206,7 @@ void argDraw3dCamera( int xwin, int ywin );
 * \param para the ARToolKit matrix
 * \param gl_para the resulted openGL matrix
 */
-void argConvGlpara( double para[3][4], double gl_para[16] );
+AR_DLL_API void argConvGlpara( double para[3][4], double gl_para[16] );
 
 /** \fn void argConvGLcpara( ARParam *param, double gnear, double gfar, double m[16] )
 * \brief transform ARToolKit intrinsic camera parameters matrix format to an openGL matrix format.
@@ -222,7 +222,7 @@ void argConvGlpara( double para[3][4], double gl_para[16] );
 * \param gfar far clipping plane value
 * \param m  the resulted openGL matrix
 */
-void argConvGLcpara( ARParam *param, double gnear, double gfar, double m[16] );
+AR_DLL_API void argConvGLcpara( ARParam *param, double gnear, double gfar, double m[16] );
 
 /** \fn void argDispImage( ARUint8 *image, int xwin, int ywin )
 * \brief display the video image.
@@ -241,7 +241,7 @@ void argConvGLcpara( ARParam *param, double gnear, double gfar, double m[16] );
 * \param xwin XXXBK
 * \param ywin XXXBK
 */
-void argDispImage( ARUint8 *image, int xwin, int ywin );
+AR_DLL_API void argDispImage( ARUint8 *image, int xwin, int ywin );
 
 /** \fn void argDispHalfImage( ARUint8 *image, int xwin, int ywin )
 * \brief display half of the video image. 
@@ -252,7 +252,7 @@ void argDispImage( ARUint8 *image, int xwin, int ywin );
 * \param xwin XXXBK
 * \param ywin XXXBK
 */
-void argDispHalfImage( ARUint8 *image, int xwin, int ywin );
+AR_DLL_API void argDispHalfImage( ARUint8 *image, int xwin, int ywin );
 
 /** \fn void argDrawSquare( double vertex[4][2], int xwin, int ywin )
 * \brief draw a 2D square.
@@ -265,7 +265,7 @@ void argDispHalfImage( ARUint8 *image, int xwin, int ywin );
 * \param xwin XXXBK
 * \param ywin XXXBK
 */
-void argDrawSquare( double vertex[4][2], int xwin, int ywin );
+AR_DLL_API void argDrawSquare( double vertex[4][2], int xwin, int ywin );
 
 /** \fn void argLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin )
 * \brief Draw a line.
@@ -280,7 +280,7 @@ void argDrawSquare( double vertex[4][2], int xwin, int ywin );
 * \param xwin XXXBK
 * \param ywin XXXBK
 */
-void argLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin );
+AR_DLL_API void argLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin );
 
 /** \fn void argLineSegHMD( double x1, double y1, double x2, double y2 )
 * \brief  Draw a line with HMD mode.
@@ -291,7 +291,7 @@ void argLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin 
 * \param x2 x position of the second point.
 * \param y2 y position of the second point.
 */
-void argLineSegHMD( double x1, double y1, double x2, double y2 );
+AR_DLL_API void argLineSegHMD( double x1, double y1, double x2, double y2 );
 
 /** \fn argInqSetting( int *hmdMode, 
                     int *gMiniXnum2, int *gMiniYnum2,
@@ -308,7 +308,7 @@ void argLineSegHMD( double x1, double y1, double x2, double y2 );
 * \param keyFunc the current key function callback
 * \param mainFunc the current main function callback
 */
-void argInqSetting( int *hmdMode, 
+AR_DLL_API void argInqSetting( int *hmdMode, 
                     int *gMiniXnum2, int *gMiniYnum2,
                     void (**mouseFunc)(int button, int state, int x, int y),
                     void (**keyFunc)(unsigned char key, int x, int y),
@@ -316,13 +316,13 @@ void argInqSetting( int *hmdMode,
 
 /*-------------------------*/
 
-void argsInit( ARSParam *scparam, double zoom, int twinFlag, int fullFlag, int xwin, int ywin );
-void argsDraw3dCamera( int xwin, int ywin, int LorR, int stencil_flag );
-void argsConvGLcpara( ARSParam *sparam, double gnear, double gfar, double mL[16], double mR[16] );
-void argsDispImage( ARUint8 *image, int LorR, int xwin, int ywin );
-void argsDispHalfImage( ARUint8 *image, int LorR, int xwin, int ywin );
-void argsLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin, int LorR );
-void argsDrawSquare( double  vertex[4][2], int xwin, int ywin, int LorR );
+AR_DLL_API void argsInit( ARSParam *scparam, double zoom, int twinFlag, int fullFlag, int xwin, int ywin );
+AR_DLL_API void argsDraw3dCamera( int xwin, int ywin, int LorR, int stencil_flag );
+AR_DLL_API void argsConvGLcpara( ARSParam *sparam, double gnear, double gfar, double mL[16], double mR[16] );
+AR_DLL_API void argsDispImage( ARUint8 *image, int LorR, int xwin, int ywin );
+AR_DLL_API void argsDispHalfImage( ARUint8 *image, int LorR, int xwin, int ywin );
+AR_DLL_API void argsLineSeg( double x1, double y1, double x2, double y2, int xwin, int ywin, int LorR );
+AR_DLL_API void argsDrawSquare( double  vertex[4][2], int xwin, int ywin, int LorR );
 
 
 #ifdef __cplusplus

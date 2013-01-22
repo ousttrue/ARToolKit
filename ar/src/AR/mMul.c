@@ -13,7 +13,7 @@
 #include <math.h>
 #include <AR/matrix.h>
 
-int arMatrixMul(ARMat *dest, ARMat *a, ARMat *b)
+AR_DLL_API int arMatrixMul(ARMat *dest, ARMat *a, ARMat *b)
 {
 	int r, c, i;
 

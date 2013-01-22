@@ -46,7 +46,7 @@ Mean:
 =========================== */
 
 
-int arMatrixPCA( ARMat *input, ARMat *evec, ARVec *ev, ARVec *mean )
+AR_DLL_API int arMatrixPCA( ARMat *input, ARMat *evec, ARVec *ev, ARVec *mean )
 {
     ARMat     *work;
     double  srow, sum;
