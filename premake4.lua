@@ -43,7 +43,7 @@ end
 
 configuration {}
 
-include "examples"
+include "ar_examples"
 include "ar"
 
 include "dsvlsample"
