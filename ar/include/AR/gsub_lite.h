@@ -207,7 +207,7 @@ extern int arglAppleTextureRange;
     @result An ARGL_CONTEXT_SETTINGS_REF. See the documentation for this type for more info.
 	@availability First appeared in ARToolKit 2.68.
 */
-ARGL_CONTEXT_SETTINGS_REF arglSetupForCurrentContext(void);
+AR_DLL_API ARGL_CONTEXT_SETTINGS_REF arglSetupForCurrentContext(void);
 
 /*!
     @function
@@ -222,7 +222,7 @@ ARGL_CONTEXT_SETTINGS_REF arglSetupForCurrentContext(void);
 		context, as returned by arglSetupForCurrentContext().
 	@availability First appeared in ARToolKit 2.68.
 */
-void arglCleanup(ARGL_CONTEXT_SETTINGS_REF contextSettings);
+AR_DLL_API void arglCleanup(ARGL_CONTEXT_SETTINGS_REF contextSettings);
 
 /*!
     @function
@@ -255,7 +255,7 @@ void arglCleanup(ARGL_CONTEXT_SETTINGS_REF contextSettings);
 		is specified in column major order.
 	@availability First appeared in ARToolKit 2.68.
 */
-void arglCameraFrustum(const ARParam *cparam, const double focalmin, const double focalmax, GLdouble m_projection[16]);
+AR_DLL_API void arglCameraFrustum(const ARParam *cparam, const double focalmin, const double focalmax, GLdouble m_projection[16]);
 
 /*!
     @function 
@@ -264,7 +264,7 @@ void arglCameraFrustum(const ARParam *cparam, const double focalmin, const doubl
     @param      (name) (description)
     @result     (description)
 */
-void arglCameraFrustumRH(const ARParam *cparam, const double focalmin, const double focalmax, GLdouble m_projection[16]);
+AR_DLL_API void arglCameraFrustumRH(const ARParam *cparam, const double focalmin, const double focalmax, GLdouble m_projection[16]);
 
 /*!
     @function
@@ -285,7 +285,7 @@ void arglCameraFrustumRH(const ARParam *cparam, const double focalmin, const dou
 		To use different OpenGL units, e.g. metres, then you would pass 0.001.
  	@availability First appeared in ARToolKit 2.68.
 */
-void arglCameraView(const double para[3][4], GLdouble m_modelview[16], const double scale);
+AR_DLL_API void arglCameraView(const double para[3][4], GLdouble m_modelview[16], const double scale);
 
 /*!
     @function 
@@ -294,7 +294,7 @@ void arglCameraView(const double para[3][4], GLdouble m_modelview[16], const dou
     @param      (name) (description)
     @result     (description)
 */
-void arglCameraViewRH(const double para[3][4], GLdouble m_modelview[16], const double scale);
+AR_DLL_API void arglCameraViewRH(const double para[3][4], GLdouble m_modelview[16], const double scale);
 
 /*!
     @function
@@ -347,7 +347,7 @@ void arglCameraViewRH(const double para[3][4], GLdouble m_modelview[16], const d
 		was created.
 	@availability First appeared in ARToolKit 2.68.
 */
-void arglDispImage(ARUint8 *image, const ARParam *cparam, const double zoom, ARGL_CONTEXT_SETTINGS_REF contextSettings);
+AR_DLL_API void arglDispImage(ARUint8 *image, const ARParam *cparam, const double zoom, ARGL_CONTEXT_SETTINGS_REF contextSettings);
 
 /*!
 	@function
@@ -369,7 +369,7 @@ void arglDispImage(ARUint8 *image, const ARParam *cparam, const double zoom, ARG
 		See the documentation for arglDispImage() for more information.
 	@availability First appeared in ARToolKit 2.68.2.
  */
-void arglDispImageStateful(ARUint8 *image, const ARParam *cparam, const double zoom, ARGL_CONTEXT_SETTINGS_REF contextSettings);
+AR_DLL_API void arglDispImageStateful(ARUint8 *image, const ARParam *cparam, const double zoom, ARGL_CONTEXT_SETTINGS_REF contextSettings);
 
 /*!
     @function
@@ -390,7 +390,7 @@ void arglDispImageStateful(ARUint8 *image, const ARParam *cparam, const double z
 	@result TRUE if the distortion value was set, FALSE if an error occurred.
 	@availability First appeared in ARToolKit 2.71.
 */
-int arglDistortionCompensationSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, int enable);
+AR_DLL_API int arglDistortionCompensationSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, int enable);
 
 /*!
     @function
@@ -406,7 +406,7 @@ int arglDistortionCompensationSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, int
 	@result TRUE if the distortion value was retreived, FALSE if an error occurred.
 	@availability First appeared in ARToolKit 2.71.
  */
-int arglDistortionCompensationGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, int *enable);
+AR_DLL_API int arglDistortionCompensationGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, int *enable);
 
 /*!
     @function
@@ -427,7 +427,7 @@ int arglDistortionCompensationGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, int
 	@result TRUE if the pixel format value was set, FALSE if an error occurred.
 	@availability First appeared in ARToolKit 2.71.
 */
-int arglPixelFormatSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, AR_PIXEL_FORMAT format);
+AR_DLL_API int arglPixelFormatSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, AR_PIXEL_FORMAT format);
 
 /*!
     @function
@@ -443,7 +443,7 @@ int arglPixelFormatSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, AR_PIXEL_FORMA
 	@result TRUE if the pixel format and size values were retreived, FALSE if an error occurred.
 	@availability First appeared in ARToolKit 2.71.
 */
-int arglPixelFormatGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, AR_PIXEL_FORMAT *format, int *size);
+AR_DLL_API int arglPixelFormatGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, AR_PIXEL_FORMAT *format, int *size);
 
 /*!
     @function 
@@ -464,7 +464,7 @@ int arglPixelFormatGet(ARGL_CONTEXT_SETTINGS_REF contextSettings, AR_PIXEL_FORMA
 		The initial value is AR_DRAW_BY_TEXTURE_MAPPING.
 	@availability First appeared in ARToolKit 2.72.
  */
-void arglDrawModeSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int mode);
+AR_DLL_API void arglDrawModeSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int mode);
 
 /*!
     @function 
@@ -475,7 +475,7 @@ void arglDrawModeSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int mode);
 		more information.
 	@availability First appeared in ARToolKit 2.72.
  */
-int arglDrawModeGet(ARGL_CONTEXT_SETTINGS_REF contextSettings);
+AR_DLL_API int arglDrawModeGet(ARGL_CONTEXT_SETTINGS_REF contextSettings);
 
 /*!
     @function
@@ -495,7 +495,7 @@ int arglDrawModeGet(ARGL_CONTEXT_SETTINGS_REF contextSettings);
 		The initial value is AR_DRAW_TEXTURE_FULL_IMAGE.
 	@availability First appeared in ARToolKit 2.72.
  */
-void arglTexmapModeSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int mode);
+AR_DLL_API void arglTexmapModeSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int mode);
 
 /*!
     @function
@@ -505,7 +505,7 @@ void arglTexmapModeSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int mode
 		for more info.
 	@availability First appeared in ARToolKit 2.72.
  */
-int arglTexmapModeGet(ARGL_CONTEXT_SETTINGS_REF contextSettings);
+AR_DLL_API int arglTexmapModeGet(ARGL_CONTEXT_SETTINGS_REF contextSettings);
 
 /*!
     @function
@@ -522,7 +522,7 @@ int arglTexmapModeGet(ARGL_CONTEXT_SETTINGS_REF contextSettings);
 		performing no drawing.
 	@availability First appeared in ARToolKit 2.72.
  */
-void arglTexRectangleSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int state);
+AR_DLL_API void arglTexRectangleSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int state);
 
 /*!
     @function
@@ -532,7 +532,7 @@ void arglTexRectangleSet(ARGL_CONTEXT_SETTINGS_REF contextSettings, const int st
 		for more info.
 	@availability First appeared in ARToolKit 2.72.
  */
-int arglTexRectangleGet(ARGL_CONTEXT_SETTINGS_REF contextSettings);
+AR_DLL_API int arglTexRectangleGet(ARGL_CONTEXT_SETTINGS_REF contextSettings);
 
 #ifdef __cplusplus
 }
