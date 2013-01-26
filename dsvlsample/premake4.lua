@@ -19,6 +19,7 @@ includedirs {
 
 libdirs {
     "../glut",
+    DDK_DIR.."/lib/ATL/i386",
 }
 
 links {
